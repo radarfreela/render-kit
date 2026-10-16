@@ -71,7 +71,8 @@ marca), `max`, `min`, `abs`, `DUR`, `w(i,'palavra',n)`. Marcas são preguiçosas
 | `partida` (estado) | placar/minuto/rebobinar do mesmo jogo | `inicial`, `rebobinar{de,ate,seq,minuto}`, `apito`, `gols{c,f}`, `minutos`, `fim` |
 | `placar` | placar com dígitos virando e status | `pos`, `estado`, `casa{nome,cor}`, `fora{...}`, `textos` |
 | `campo` | campo visto de cima, jogadores, bola, gols | `pos`, `lances[{t,de,gol}]`, `cores` |
-| `celular` | mockup com mini placar e notificações | `pos`, `hora`, `placar`, `notificacoes[{topo,titulo,sub,fases,brilho}]` |
+| `aparelho` | moldura genérica (sem marca) de `celular` 400x820, `tablet` 600x800 (3:4) ou `computador` 960x606 (tela 16:10 + base), com barra de status, mini placar, notificações e conteúdo livre | `formato`, `pos`, `hora`, `placar`, `notificacoes[{topo,titulo,sub,icone,fases,brilho}]`, `tela` (html) |
+| `celular` | o mesmo que `aparelho` com `formato: 'celular'` (compatível com moldes antigos) | idem |
 | `tabela` | linhas x colunas; `destaque` acende o maior valor de cada coluna (conferido); `busca` faz os números procurarem até uma linha travar | `pos`, `modo`, `colunas`, `linhas`, `etiquetas`, `destaque`, `melhor`, `pulsoLogo`, `centro`, `acha`, `em`, `logo`, `titulo` |
 | `relogio` | relógio girando (tempo correndo) | `x`, `y`, `de`, `ate`, `cor` |
 | `final` | logo + endereço sendo digitado + texto legal | `logo`, `logoLargura`, `em`, `url`, `sufixo`, `urlEm`, `legal` |

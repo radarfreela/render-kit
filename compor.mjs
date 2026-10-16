@@ -16,7 +16,7 @@ import { pathToFileURL } from 'node:url';
 const require = createRequire(import.meta.url);
 const AQUI = path.dirname(new URL(import.meta.url).pathname);
 require('./blocos/tempo.js'); const RK = globalThis.RK;   // (package.json é type:module: o bloco se registra em globalThis)
-const BLOCOS = ['nucleo', 'tempo', 'texto', 'cartoes', 'jogo', 'celular', 'tabela', 'balanca', 'final'];
+const BLOCOS = ['nucleo', 'tempo', 'texto', 'cartoes', 'jogo', 'aparelho', 'tabela', 'balanca', 'final'];
 
 const argv = process.argv.slice(2);
 const arg = (n, p) => { const i = argv.indexOf(n); return i >= 0 ? argv[i + 1] : p; };
