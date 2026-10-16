@@ -7,9 +7,7 @@ inputs:
 runs:
   using: composite
   steps:
-    - if: inputs.node == 'true'
-      uses: actions/setup-node@v4
-      with: { node-version: 20 }
+    # node: o do runner (ubuntu-latest já traz Node 20) — economiza o setup-node
     - if: inputs.node == 'true'
       id: cnpm
       uses: actions/cache@v4
