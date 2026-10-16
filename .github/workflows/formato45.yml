@@ -1,0 +1,59 @@
+name: formato45
+on:
+  workflow_dispatch:
+    inputs:
+      runs: { description: 'ids de runs do gravar.yml, separados por espaço', required: true }
+      modo: { description: 'corte (recorta 1080x1350 a partir de y=20) ou desfoque', default: 'corte' }
+permissions:
+  contents: read
+jobs:
+  f45:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      RUNS: ${{ inputs.runs }}
+      MODO: ${{ inputs.modo }}
+      AWS_DEFAULT_REGION: auto
+      AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+      AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+    steps:
+      - name: Conferir entradas
+        run: |
+          printf '%s' "$RUNS" | grep -Eq '^[0-9 ]+$' || { echo "runs inválido"; exit 1; }
+          case "$MODO" in corte|desfoque) ;; *) echo "modo inválido"; exit 1;; esac
+      - name: ffmpeg
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg > /dev/null
+      - name: Baixar do R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          r2() { aws s3 "$@" --endpoint-url "$R2_ENDPOINT" --only-show-errors > /dev/null 2>&1 < /dev/null; }   # sem eco: log de repo público
+          for id in $RUNS; do
+            r2 cp --recursive "s3://$R2_BUCKET/saida/$id/" "ent/$id/" --exclude '*' --include '*-som.mp4' || { echo "falha no R2"; exit 1; }
+          done
+      - name: Converter
+        run: |
+          mkdir -p sai
+          if [ "$MODO" = "corte" ]; then F="crop=1080:1350:0:20,format=yuv420p"
+          else F="[0:v]split[a][b];[a]scale=1080:1350:force_original_aspect_ratio=increase,crop=1080:1350,boxblur=24:2,eq=brightness=-0.04[bg];[b]scale=-2:1350[fg];[bg][fg]overlay=(W-w)/2:0,format=yuv420p"; fi
+          n=0
+          while IFS= read -r f; do
+            b=$(basename "$f" -som.mp4)
+            ffmpeg -nostdin -y -loglevel error -i "$f" -filter_complex "$F" -c:v libx264 -preset slow -crf 20 -maxrate 4M -bufsize 8M -c:a copy -movflags +faststart "sai/$b-4x5.mp4"
+            n=$((n+1))
+          done < <(find ent -name '*-som.mp4')
+          [ "$n" -gt 0 ] || { echo "nenhum vídeo encontrado"; exit 1; }
+          echo "$n vídeo(s) convertido(s)"
+      - name: Subir saída para o R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          r2() { aws s3 "$@" --endpoint-url "$R2_ENDPOINT" --only-show-errors > /dev/null 2>&1 < /dev/null; }   # sem eco: log de repo público
+          r2 cp --recursive sai/ "s3://$R2_BUCKET/saida/$GITHUB_RUN_ID/" || { echo "falha no R2"; exit 1; }
+          echo "saída: saida/$GITHUB_RUN_ID/"

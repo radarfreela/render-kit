@@ -1,0 +1,27 @@
+# código só; conteúdo (moldes, áudio, textos, configs) fica no R2, nunca aqui
+node_modules/
+molde-*/
+molde/
+audio/
+saida/
+ent/
+sai/
+jobs/
+*_textos*.json
+criativo-*.json
+narracao.json
+roteiro.json
+palavras.json
+_req.json
+_resp.json
+*.wav
+*.mp3
+*.ogg
+*.mp4
+*.jpg
+*.jpeg
+*.png
+*.webp
+.env
+.env.*
+.DS_Store

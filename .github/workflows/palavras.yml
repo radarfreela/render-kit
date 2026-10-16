@@ -1,0 +1,52 @@
+name: palavras
+on:
+  workflow_dispatch:
+    inputs:
+      projeto: { description: 'prefixo do projeto no R2', required: true }
+      pasta: { description: 'subpasta com as narrações .wav dentro do projeto', default: 'audio' }
+permissions:
+  contents: read
+jobs:
+  palavras:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PROJETO: ${{ inputs.projeto }}
+      PASTA: ${{ inputs.pasta }}
+      AWS_DEFAULT_REGION: auto
+      AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+      AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+    steps:
+      - name: Conferir entradas
+        run: |
+          for v in "$PROJETO" "$PASTA"; do
+            printf '%s' "$v" | grep -Eq '^[A-Za-z0-9._/-]+$' && ! printf '%s' "$v" | grep -q '\.\.' || { echo "entrada inválida"; exit 1; }
+          done
+      - uses: actions/checkout@v4
+        with: { persist-credentials: false }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - run: pip install -q faster-whisper
+      - name: Baixar narrações do R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          r2() { aws s3 "$@" --endpoint-url "$R2_ENDPOINT" --only-show-errors > /dev/null 2>&1 < /dev/null; }   # sem eco: log de repo público
+          r2 cp --recursive "s3://$R2_BUCKET/$PROJETO/$PASTA/" ent/ --exclude '*' --include '*.wav' --exclude '*/*' || { echo "falha no R2"; exit 1; }
+          n=$(find ent -maxdepth 1 -name '*.wav' | wc -l); [ "$n" -gt 0 ] || { echo "nenhuma narração encontrada"; exit 1; }
+          echo "$n narração(ões)"
+      - name: Transcrever
+        run: python palavras.py ent > palavras.json
+      - name: Subir saída para o R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          r2() { aws s3 "$@" --endpoint-url "$R2_ENDPOINT" --only-show-errors > /dev/null 2>&1 < /dev/null; }   # sem eco: log de repo público
+          r2 cp palavras.json "s3://$R2_BUCKET/saida/$GITHUB_RUN_ID/palavras.json" || { echo "falha no R2"; exit 1; }
+          echo "saída: saida/$GITHUB_RUN_ID/palavras.json"

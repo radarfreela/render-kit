@@ -1,0 +1,61 @@
+name: vozes
+on:
+  workflow_dispatch:
+    inputs:
+      projeto: { description: 'prefixo do projeto no R2', required: true }
+      molde: { description: 'subpasta com narracao.json dentro do projeto', default: 'molde' }
+      vozes: { description: 'vozes Kokoro separadas por espaço', default: 'pf_dora pm_alex pm_santa' }
+permissions:
+  contents: read
+jobs:
+  vozes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PROJETO: ${{ inputs.projeto }}
+      MOLDE: ${{ inputs.molde }}
+      VOZES: ${{ inputs.vozes }}
+      AWS_DEFAULT_REGION: auto
+      AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+      AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+    steps:
+      - name: Conferir entradas
+        run: |
+          for v in "$PROJETO" "$MOLDE"; do
+            printf '%s' "$v" | grep -Eq '^[A-Za-z0-9._/-]+$' && ! printf '%s' "$v" | grep -q '\.\.' || { echo "entrada inválida"; exit 1; }
+          done
+          printf '%s' "$VOZES" | grep -Eq '^[a-z_ ]+$' || { echo "vozes inválidas"; exit 1; }
+      - uses: actions/checkout@v4
+        with: { persist-credentials: false }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq espeak-ng ffmpeg > /dev/null
+      - run: pip install -q "kokoro>=0.9" soundfile "misaki[pt]" torch --extra-index-url https://download.pytorch.org/whl/cpu
+      - name: Baixar roteiro do R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          r2() { aws s3 "$@" --endpoint-url "$R2_ENDPOINT" --only-show-errors > /dev/null 2>&1 < /dev/null; }   # sem eco: log de repo público
+          r2 cp "s3://$R2_BUCKET/$PROJETO/$MOLDE/narracao.json" molde/narracao.json || { echo "falha no R2"; exit 1; }
+      - name: Gerar
+        run: |
+          for v in $VOZES; do python voz_kokoro.py --molde molde --voz "$v" --saida "saida/voz_$v"; done
+          cd saida
+          for v in $VOZES; do
+            find "voz_$v" -maxdepth 1 -name '*.wav' | sort | sed "s/^/file /" > "l_$v.txt"
+            ffmpeg -v error -y -f concat -safe 0 -i "l_$v.txt" "amostra_$v.mp3"
+            rm -f "l_$v.txt"
+          done
+      - name: Subir saída para o R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          r2() { aws s3 "$@" --endpoint-url "$R2_ENDPOINT" --only-show-errors > /dev/null 2>&1 < /dev/null; }   # sem eco: log de repo público
+          r2 cp --recursive saida/ "s3://$R2_BUCKET/saida/$GITHUB_RUN_ID/" || { echo "falha no R2"; exit 1; }
+          echo "saída: saida/$GITHUB_RUN_ID/"
