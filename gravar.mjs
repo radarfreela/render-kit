@@ -2,6 +2,7 @@
 //   node gravar.mjs --molde molde --arquivo video.html --saida saida/video.mp4
 //   node gravar.mjs ... --pedaco 3/8 --sem-audio --saida p3.mp4   -> só o 4º de 8 intervalos de quadros
 //   node gravar.mjs ... --quadros 1.2,5.4 --saida pasta/            -> só PNGs desses instantes (prévia)
+//   --saida-leve x.mp4 --saida-45 y.mp4   -> na mesma passada, também a versão leve e a 4:5 (recorte 1080x1350)
 // O molde expõe um seek síncrono: elemento [data-om-sync-seek] (evento data-om-seek-to-time-frame)
 // ou window.render(t) + window.DUR. Cada quadro é determinístico.
 import http from 'node:http';
@@ -16,6 +17,7 @@ const ARQUIVO = arg('--arquivo', 'video.html');
 const SAIDA = path.resolve(arg('--saida', 'saida/video.mp4'));
 const FPS = Number(arg('--fps', 30));
 const QUADROS = arg('--quadros'), PEDACO = arg('--pedaco'), SEM_AUDIO = process.argv.includes('--sem-audio');
+const LEVE = arg('--saida-leve'), F45 = arg('--saida-45');
 const LARG = 1080, ALT = 1920;
 
 const TIPOS = { '.html': 'text/html', '.js': 'text/javascript', '.jsx': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml' };
@@ -76,10 +78,15 @@ if (QUADROS) {  // prévia: PNG de cada instante pedido (arredondado ao quadro, 
 let de = 0, ate = n;
 if (PEDACO) { const [i, N] = PEDACO.split('/').map(Number); de = Math.floor(n * i / N); ate = Math.floor(n * (i + 1) / N); }
 fs.mkdirSync(path.dirname(SAIDA), { recursive: true });
+const AUD = SEM_AUDIO ? ['-an'] : ['-map', '1:a', '-c:a', 'aac', '-b:a', '128k', '-shortest'];
+const extras = [LEVE, F45].filter(Boolean).length;
+const filtro = `[0:v]scale=${LARG}:${ALT}:flags=lanczos,format=yuv420p` + (extras ? `,split=${extras + 1}[v0]` + (LEVE ? '[vl]' : '') + (F45 ? '[vq];[vq]crop=1080:1350:0:20[v45]' : '') : '[v0]');
 const ff = spawn('ffmpeg', ['-y', '-v', 'error', '-f', 'image2pipe', '-framerate', String(FPS), '-c:v', 'mjpeg', '-i', '-',
-  ...(SEM_AUDIO ? [] : ['-f', 'lavfi', '-i', 'anullsrc=r=48000:cl=stereo']),
-  '-vf', `scale=${LARG}:${ALT}:flags=lanczos,format=yuv420p`, '-c:v', 'libx264', '-preset', 'medium', '-crf', '18',
-  ...(SEM_AUDIO ? ['-an'] : ['-c:a', 'aac', '-b:a', '128k', '-shortest']), '-movflags', '+faststart', SAIDA], { stdio: ['pipe', 'inherit', 'inherit'] });
+  ...(SEM_AUDIO ? [] : ['-f', 'lavfi', '-i', 'anullsrc=r=48000:cl=stereo']), '-filter_complex', filtro,
+  '-map', '[v0]', '-c:v', 'libx264', '-preset', 'medium', '-crf', '18', ...AUD, '-movflags', '+faststart', SAIDA,
+  ...(LEVE ? ['-map', '[vl]', '-c:v', 'libx264', '-preset', 'slow', '-crf', '22', '-maxrate', '4M', '-bufsize', '8M', ...AUD, '-movflags', '+faststart', LEVE] : []),
+  ...(F45 ? ['-map', '[v45]', '-c:v', 'libx264', '-preset', 'slow', '-crf', '20', '-maxrate', '4M', '-bufsize', '8M', ...AUD, '-movflags', '+faststart', F45] : []),
+], { stdio: ['pipe', 'inherit', 'inherit'] });
 
 for (let f = de; f < ate; f++) {
   await seek(f / FPS);

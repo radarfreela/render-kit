@@ -41,7 +41,13 @@ jobs:
           R2_BUCKET: ${{ secrets.R2_BUCKET }}
         run: |
           r2() { aws s3 "$@" --endpoint-url "$R2_ENDPOINT" --only-show-errors > /dev/null 2>&1 < /dev/null; }   # sem eco: log de repo público
-          r2 cp --recursive "s3://$R2_BUCKET/$PROJETO/$MOLDE/" molde/ || { echo "falha no R2"; exit 1; }
+          mkdir -p molde
+          # molde empacotado (1 GET via curl) quando existir; senão, pasta inteira pelo aws
+          if R2_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID" R2_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY" ./r2.sh get "$PROJETO/$MOLDE.tgz" m.tgz > /dev/null 2>&1; then
+            tar -xzf m.tgz -C molde
+          else
+            r2 cp --recursive "s3://$R2_BUCKET/$PROJETO/$MOLDE/" molde/ || { echo "falha no R2"; exit 1; }
+          fi
           [ -f "molde/$ARQUIVO" ] || { echo "molde incompleto no R2"; exit 1; }
       - name: Prévia
         run: node gravar.mjs --molde molde --arquivo "$ARQUIVO" --quadros "$QUADROS" --saida sai/quadros
