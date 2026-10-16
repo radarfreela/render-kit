@@ -1,0 +1,56 @@
+name: preparar
+description: Node + dependências (em cache), ffmpeg estático (em cache) e fonte de emoji (em cache), sem apt-get update quando o cache existe.
+inputs:
+  ffmpeg: { description: 'instalar ffmpeg', default: 'true' }
+  node: { description: 'instalar node + puppeteer', default: 'true' }
+  emoji: { description: 'instalar fonte de emoji', default: 'true' }
+runs:
+  using: composite
+  steps:
+    - if: inputs.node == 'true'
+      uses: actions/setup-node@v4
+      with: { node-version: 20 }
+    - if: inputs.node == 'true'
+      id: cnpm
+      uses: actions/cache@v4
+      with:
+        path: |
+          node_modules
+          ~/.cache/puppeteer
+        key: npm-${{ runner.os }}-${{ hashFiles('package.json') }}-v1
+    - if: inputs.node == 'true' && steps.cnpm.outputs.cache-hit != 'true'
+      shell: bash
+      run: npm install --no-audit --no-fund --loglevel=error
+    - if: inputs.ffmpeg == 'true'
+      id: cff
+      uses: actions/cache@v4
+      with:
+        path: ~/ffbin
+        key: ffmpeg-static-${{ runner.os }}-v1
+    - if: inputs.ffmpeg == 'true' && steps.cff.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        mkdir -p ~/ffbin
+        if curl -fsSL --retry 3 -o /tmp/ff.tar.xz https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz \
+           && tar -xJf /tmp/ff.tar.xz -C /tmp && cp /tmp/ffmpeg-master-*/bin/ffmpeg /tmp/ffmpeg-master-*/bin/ffprobe ~/ffbin/; then
+          echo "ffmpeg estático"
+        else   # plano B: apt (não vai para o cache, porque depende de bibliotecas do sistema)
+          rm -rf ~/ffbin; sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg > /dev/null
+        fi
+    - if: inputs.ffmpeg == 'true'
+      shell: bash
+      run: echo "$HOME/ffbin" >> "$GITHUB_PATH"
+    - if: inputs.emoji == 'true'
+      id: cemo
+      uses: actions/cache@v4
+      with:
+        path: ~/emoji
+        key: emoji-font-${{ runner.os }}-v1
+    - if: inputs.emoji == 'true' && steps.cemo.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        sudo apt-get update -qq && sudo apt-get install -y -qq fonts-noto-color-emoji > /dev/null
+        mkdir -p ~/emoji && cp /usr/share/fonts/truetype/noto/NotoColorEmoji.ttf ~/emoji/
+    - if: inputs.emoji == 'true'
+      shell: bash
+      run: mkdir -p ~/.local/share/fonts && cp ~/emoji/*.ttf ~/.local/share/fonts/ && fc-cache -f > /dev/null

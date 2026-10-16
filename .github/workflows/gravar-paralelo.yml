@@ -1,0 +1,123 @@
+name: gravar-paralelo
+run-name: gravar-paralelo ${{ inputs.nome }}
+# Mesmo resultado do gravar.yml, em N pedaços simultâneos: cada job grava um intervalo de quadros
+# (render(t) é determinístico, então os pedaços casam sem pulo); o job final junta sem recomprimir,
+# mixa o som e gera a versão leve e a 4:5 no mesmo job.
+on:
+  workflow_dispatch:
+    inputs:
+      projeto: { description: 'prefixo do projeto no R2', required: true }
+      molde: { description: 'subpasta do molde dentro do projeto', default: 'molde' }
+      audio: { description: 'subpasta dos áudios dentro do projeto', default: 'audio' }
+      arquivo: { description: 'html do molde', default: 'video.html' }
+      nome: { description: 'nome do mp4', default: 'video' }
+      pedacos: { description: 'índices dos pedaços (JSON); o total é o tamanho da lista', default: '[0,1,2,3,4,5,6,7]' }
+permissions:
+  contents: read
+env:
+  PROJETO: ${{ inputs.projeto }}
+  MOLDE: ${{ inputs.molde }}
+  AUDIO: ${{ inputs.audio }}
+  ARQUIVO: ${{ inputs.arquivo }}
+  NOME: ${{ inputs.nome }}
+  AWS_DEFAULT_REGION: auto
+  AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+  AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+jobs:
+  pedaco:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: true
+      matrix:
+        i: ${{ fromJSON(inputs.pedacos) }}
+    steps:
+      - name: Conferir entradas
+        env: { I: '${{ matrix.i }}', N: '${{ strategy.job-total }}' }
+        run: |
+          ok() { printf '%s' "$1" | grep -Eq '^[A-Za-z0-9._/-]+$' && ! printf '%s' "$1" | grep -q '\.\.'; }
+          for v in "$PROJETO" "$MOLDE" "$AUDIO" "$ARQUIVO" "$NOME"; do ok "$v" || { echo "entrada inválida"; exit 1; }; done
+          printf '%s' "$NOME" | grep -Eq '^[A-Za-z0-9._-]+$' || { echo "nome inválido"; exit 1; }
+          printf '%s/%s' "$I" "$N" | grep -Eq '^[0-9]+/[0-9]+$' || { echo "pedaço inválido"; exit 1; }
+      - uses: actions/checkout@v4
+        with: { persist-credentials: false }
+      - uses: ./.github/actions/preparar
+      - name: Baixar molde do R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          r2() { aws s3 "$@" --endpoint-url "$R2_ENDPOINT" --only-show-errors > /dev/null 2>&1 < /dev/null; }   # sem eco: log de repo público
+          r2 cp --recursive "s3://$R2_BUCKET/$PROJETO/$MOLDE/" molde/ || { echo "falha no R2"; exit 1; }
+          [ -f "molde/$ARQUIVO" ] || { echo "molde incompleto no R2"; exit 1; }
+      - name: Gravar pedaço
+        env: { I: '${{ matrix.i }}', N: '${{ strategy.job-total }}' }
+        run: node gravar.mjs --molde molde --arquivo "$ARQUIVO" --pedaco "$I/$N" --sem-audio --saida "p.mp4"
+      - name: Subir pedaço para o R2
+        env:
+          I: ${{ matrix.i }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          r2() { aws s3 "$@" --endpoint-url "$R2_ENDPOINT" --only-show-errors > /dev/null 2>&1 < /dev/null; }   # sem eco: log de repo público
+          r2 cp p.mp4 "s3://$R2_BUCKET/saida/$GITHUB_RUN_ID/pedacos/p$(printf %03d "$I").mp4" || { echo "falha no R2"; exit 1; }
+  juntar:
+    needs: pedaco
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with: { persist-credentials: false }
+      - uses: ./.github/actions/preparar
+        with: { node: 'false', emoji: 'false' }
+      - name: Baixar pedaços, sons e áudios do R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          r2() { aws s3 "$@" --endpoint-url "$R2_ENDPOINT" --only-show-errors > /dev/null 2>&1 < /dev/null; }   # sem eco: log de repo público
+          R="s3://$R2_BUCKET/$PROJETO"
+          r2 cp --recursive "s3://$R2_BUCKET/saida/$GITHUB_RUN_ID/pedacos/" pedacos/ || { echo "falha no R2"; exit 1; }
+          r2 cp "$R/$MOLDE/sons.json" molde/sons.json || { echo "falha no R2"; exit 1; }
+          jq -r '[(.trilha | select(. != null and .volume > 0) | .arquivo), (.narracao // [] | .[].arquivo),
+                  (.fundo // [] | .[].arquivo), (.eventos // [] | .[].som)] | unique | .[]' molde/sons.json > _audios.txt
+          n=0
+          while IFS= read -r f; do
+            printf '%s' "$f" | grep -Eq '^[A-Za-z0-9._/-]+$' && ! printf '%s' "$f" | grep -q '\.\.' || { echo "caminho de áudio inválido no sons.json"; exit 1; }
+            r2 cp "$R/$AUDIO/$f" "audio/$f" || { echo "falha no R2"; exit 1; }
+            n=$((n+1))
+          done < _audios.txt
+          echo "$(ls pedacos | wc -l) pedaços + $n áudios"
+      - name: Juntar (sem recomprimir) e conferir quadros
+        run: |
+          mkdir -p saida
+          ls pedacos/*.mp4 | sort | sed "s#^#file '$PWD/#; s#\$#'#" > lista.txt
+          ffmpeg -nostdin -y -v error -f concat -safe 0 -i lista.txt -c copy -movflags +faststart "saida/$NOME.mp4"
+          q=$(ffprobe -v error -count_packets -select_streams v:0 -show_entries stream=nb_read_packets -of csv=p=0 "saida/$NOME.mp4")
+          e=$(jq -r '.duracao * 30 | round' molde/sons.json)
+          echo "quadros: $q (esperado $e)"; [ "$q" = "$e" ] || { echo "contagem de quadros não bate"; exit 1; }
+      - name: Som (trilha + efeitos)
+        run: node mixar.mjs --molde molde --audio audio --video "saida/$NOME.mp4" --saida "saida/$NOME-som.mp4"
+      - name: Versão leve + 4:5 (em paralelo)
+        run: |
+          ffmpeg -nostdin -y -loglevel error -i "saida/$NOME-som.mp4" -c:v libx264 -preset slow -crf 22 -maxrate 4M -bufsize 8M -pix_fmt yuv420p -c:a copy -movflags +faststart "saida/$NOME-leve.mp4" &
+          ffmpeg -nostdin -y -loglevel error -i "saida/$NOME-som.mp4" -filter_complex "crop=1080:1350:0:20,format=yuv420p" -c:v libx264 -preset slow -crf 20 -maxrate 4M -bufsize 8M -c:a copy -movflags +faststart "saida/$NOME-4x5.mp4" &
+          wait %1 && wait %2
+      - name: Subir saída para o R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          r2() { aws s3 "$@" --endpoint-url "$R2_ENDPOINT" --only-show-errors > /dev/null 2>&1 < /dev/null; }   # sem eco: log de repo público
+          for f in "$NOME-som.mp4" "$NOME-leve.mp4" "$NOME-4x5.mp4"; do
+            r2 cp "saida/$f" "s3://$R2_BUCKET/saida/$GITHUB_RUN_ID/$f" || { echo "falha no R2"; exit 1; }
+          done
+          echo "saída: saida/$GITHUB_RUN_ID/"

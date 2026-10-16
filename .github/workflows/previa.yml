@@ -1,0 +1,58 @@
+name: previa
+run-name: previa ${{ inputs.nome }}
+on:
+  workflow_dispatch:
+    inputs:
+      projeto: { description: 'prefixo do projeto no R2', required: true }
+      molde: { description: 'subpasta do molde dentro do projeto', default: 'molde' }
+      arquivo: { description: 'html do molde', default: 'video.html' }
+      quadros: { description: 'instantes em segundos, separados por vírgula (ex. 1.2,5.4)', required: true }
+      nome: { description: 'rótulo neutro da execução', default: 'previa' }
+permissions:
+  contents: read
+jobs:
+  previa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PROJETO: ${{ inputs.projeto }}
+      MOLDE: ${{ inputs.molde }}
+      ARQUIVO: ${{ inputs.arquivo }}
+      QUADROS: ${{ inputs.quadros }}
+      NOME: ${{ inputs.nome }}
+      AWS_DEFAULT_REGION: auto
+      AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+      AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+    steps:
+      - name: Conferir entradas
+        run: |
+          ok() { printf '%s' "$1" | grep -Eq '^[A-Za-z0-9._/-]+$' && ! printf '%s' "$1" | grep -q '\.\.'; }
+          for v in "$PROJETO" "$MOLDE" "$ARQUIVO" "$NOME"; do ok "$v" || { echo "entrada inválida"; exit 1; }; done
+          printf '%s' "$QUADROS" | grep -Eq '^[0-9.]+(,[0-9.]+)*$' || { echo "quadros inválido"; exit 1; }
+      - uses: actions/checkout@v4
+        with: { persist-credentials: false }
+      - uses: ./.github/actions/preparar
+        with: { ffmpeg: 'false' }
+      - name: Baixar molde do R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          r2() { aws s3 "$@" --endpoint-url "$R2_ENDPOINT" --only-show-errors > /dev/null 2>&1 < /dev/null; }   # sem eco: log de repo público
+          r2 cp --recursive "s3://$R2_BUCKET/$PROJETO/$MOLDE/" molde/ || { echo "falha no R2"; exit 1; }
+          [ -f "molde/$ARQUIVO" ] || { echo "molde incompleto no R2"; exit 1; }
+      - name: Prévia
+        run: node gravar.mjs --molde molde --arquivo "$ARQUIVO" --quadros "$QUADROS" --saida sai/quadros
+      - name: Subir saída para o R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          r2() { aws s3 "$@" --endpoint-url "$R2_ENDPOINT" --only-show-errors > /dev/null 2>&1 < /dev/null; }   # sem eco: log de repo público
+          ls sai/quadros > sai/lista.txt
+          r2 cp --recursive sai/ "s3://$R2_BUCKET/saida/$GITHUB_RUN_ID/" || { echo "falha no R2"; exit 1; }
+          echo "saída: saida/$GITHUB_RUN_ID/ ($(wc -l < sai/lista.txt) quadros)"

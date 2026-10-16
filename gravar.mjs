@@ -1,5 +1,7 @@
 // Grava um molde HTML em MP4, quadro a quadro.
 //   node gravar.mjs --molde molde --arquivo video.html --saida saida/video.mp4
+//   node gravar.mjs ... --pedaco 3/8 --sem-audio --saida p3.mp4   -> só o 4º de 8 intervalos de quadros
+//   node gravar.mjs ... --quadros 1.2,5.4 --saida pasta/            -> só PNGs desses instantes (prévia)
 // O molde expõe um seek síncrono: elemento [data-om-sync-seek] (evento data-om-seek-to-time-frame)
 // ou window.render(t) + window.DUR. Cada quadro é determinístico.
 import http from 'node:http';
@@ -13,6 +15,7 @@ const MOLDE = path.resolve(arg('--molde', 'molde'));
 const ARQUIVO = arg('--arquivo', 'video.html');
 const SAIDA = path.resolve(arg('--saida', 'saida/video.mp4'));
 const FPS = Number(arg('--fps', 30));
+const QUADROS = arg('--quadros'), PEDACO = arg('--pedaco'), SEM_AUDIO = process.argv.includes('--sem-audio');
 const LARG = 1080, ALT = 1920;
 
 const TIPOS = { '.html': 'text/html', '.js': 'text/javascript', '.jsx': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml' };
@@ -51,25 +54,40 @@ const escala = LARG / palco.w;
 if (Math.abs(escala - 1) > 0.001) palco = await abrir(escala);
 console.log(`palco ${palco.w.toFixed(0)}x${palco.h.toFixed(0)} · escala ${escala.toFixed(3)} · duração ${palco.dur}s`);
 
-fs.mkdirSync(path.dirname(SAIDA), { recursive: true });
-const ff = spawn('ffmpeg', ['-y', '-v', 'error', '-f', 'image2pipe', '-framerate', String(FPS), '-c:v', 'mjpeg', '-i', '-',
-  '-f', 'lavfi', '-i', 'anullsrc=r=48000:cl=stereo',
-  '-vf', `scale=${LARG}:${ALT}:flags=lanczos,format=yuv420p`, '-c:v', 'libx264', '-preset', 'medium', '-crf', '18',
-  '-c:a', 'aac', '-b:a', '128k', '-shortest', '-movflags', '+faststart', SAIDA], { stdio: ['pipe', 'inherit', 'inherit'] });
-
 const n = Math.round(palco.dur * FPS), t0 = Date.now();
 const clip = { x: palco.x, y: palco.y, width: palco.w, height: palco.h };
-for (let f = 0; f < n; f++) {
-  await pg.evaluate((t) => {
-    const el = document.querySelector('[data-om-sync-seek]');
-    if (el) el.dispatchEvent(new CustomEvent('data-om-seek-to-time-frame', { detail: { time: t, sync: true } }));
-    else window.render(t);
-  }, f / FPS);
+const seek = t => pg.evaluate((t) => {
+  const el = document.querySelector('[data-om-sync-seek]');
+  if (el) el.dispatchEvent(new CustomEvent('data-om-seek-to-time-frame', { detail: { time: t, sync: true } }));
+  else window.render(t);
+}, t);
+
+if (QUADROS) {  // prévia: PNG de cada instante pedido (arredondado ao quadro, igual ao vídeo)
+  fs.mkdirSync(SAIDA, { recursive: true });
+  for (const s of QUADROS.split(',').map(Number).filter(x => isFinite(x) && x >= 0)) {
+    const f = Math.min(n - 1, Math.round(s * FPS)); await seek(f / FPS);
+    await pg.screenshot({ type: 'png', clip, path: path.join(SAIDA, `q-${String(f).padStart(5, '0')}.png`) });
+  }
+  await nav.close(); servidor.close();
+  console.log(`prévia: ${QUADROS.split(',').length} quadros em ${((Date.now() - t0) / 1000).toFixed(1)}s`);
+  process.exit(0);
+}
+// pedaço i/N: intervalo [de, ate) de quadros; os pedaços juntos cobrem 0..n sem sobra nem falta
+let de = 0, ate = n;
+if (PEDACO) { const [i, N] = PEDACO.split('/').map(Number); de = Math.floor(n * i / N); ate = Math.floor(n * (i + 1) / N); }
+fs.mkdirSync(path.dirname(SAIDA), { recursive: true });
+const ff = spawn('ffmpeg', ['-y', '-v', 'error', '-f', 'image2pipe', '-framerate', String(FPS), '-c:v', 'mjpeg', '-i', '-',
+  ...(SEM_AUDIO ? [] : ['-f', 'lavfi', '-i', 'anullsrc=r=48000:cl=stereo']),
+  '-vf', `scale=${LARG}:${ALT}:flags=lanczos,format=yuv420p`, '-c:v', 'libx264', '-preset', 'medium', '-crf', '18',
+  ...(SEM_AUDIO ? ['-an'] : ['-c:a', 'aac', '-b:a', '128k', '-shortest']), '-movflags', '+faststart', SAIDA], { stdio: ['pipe', 'inherit', 'inherit'] });
+
+for (let f = de; f < ate; f++) {
+  await seek(f / FPS);
   const buf = await pg.screenshot({ type: 'jpeg', quality: 95, clip });
   if (!ff.stdin.write(buf)) await new Promise(r => ff.stdin.once('drain', r));
-  if (f % 150 === 0) console.log(`quadro ${f}/${n} · ${((Date.now() - t0) / 1000).toFixed(0)}s`);
+  if ((f - de) % 150 === 0) console.log(`quadro ${f}/${n} · ${((Date.now() - t0) / 1000).toFixed(0)}s`);
 }
 ff.stdin.end();
 await new Promise((ok, erro) => ff.on('close', c => (c === 0 ? ok() : erro(new Error('ffmpeg ' + c)))));
 await nav.close(); servidor.close();
-console.log(`pronto: ${SAIDA} · ${n} quadros em ${((Date.now() - t0) / 1000).toFixed(0)}s`);
+console.log(`pronto: ${path.basename(SAIDA)} · quadros ${de}-${ate} de ${n} em ${((Date.now() - t0) / 1000).toFixed(0)}s`);

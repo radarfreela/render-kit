@@ -13,7 +13,10 @@ artefato nem imprime conteúdo no log.
 - `vozes_gemini.py` — narração por Gemini TTS a partir de um config/textos JSON. `voz_kokoro.py` — amostras com Kokoro.
 - `palavras.py` — tempo de cada palavra das narrações (faster-whisper).
 - `revisar.py` — checagens medidas de um MP4 pronto + folha de quadros. `conferir-camera.cjs` — confere enquadramento.
-- `r2.sh` — put/get no R2 só com curl. `fazer.sh` — sobe os insumos de um molde e dispara o `gravar`.
+- `r2.sh` — put/get/cp no R2 só com curl. `fazer.sh` — sobe os insumos de um molde e dispara o `gravar`.
+- `blocos/` + `compor.mjs` — biblioteca de cenas genéricas e o compositor que transforma um roteiro de cenas
+  (`video.json`) + tempos das palavras da voz num molde. Ver `blocos/LEIAME.md`.
+- `gravar.mjs --quadros 1.2,5.4` (prévia em PNG) e `--pedaco i/N --sem-audio` (um intervalo de quadros).
 
 ## Molde
 
@@ -34,6 +37,8 @@ Use um `projeto` neutro (o `fazer.sh` usa `jobs/<id aleatório>`): os inputs fic
     gh workflow run formato45.yml -R radarfreela/render-kit -f runs="<run_id> <run_id>"
     gh workflow run palavras.yml  -R radarfreela/render-kit -f projeto=jobs/<id> -f pasta=audio
     gh workflow run vozes.yml     -R radarfreela/render-kit -f projeto=jobs/<id> -f molde=molde
+    gh workflow run previa.yml    -R radarfreela/render-kit -f projeto=jobs/<id> -f quadros=1.2,5.4
+    gh workflow run gravar-paralelo.yml -R radarfreela/render-kit -f projeto=jobs/<id> -f nome=video   # 8 pedaços + juntar (som, leve, 4:5)
 
 Ou, da pasta do conteúdo: `R2_BUCKET=... R2_CRED_FILE=... ./fazer.sh <pasta-do-molde> <nome>`.
 
