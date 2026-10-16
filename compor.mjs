@@ -16,7 +16,7 @@ import { pathToFileURL } from 'node:url';
 const require = createRequire(import.meta.url);
 const AQUI = path.dirname(new URL(import.meta.url).pathname);
 require('./blocos/tempo.js'); const RK = globalThis.RK;   // (package.json é type:module: o bloco se registra em globalThis)
-const BLOCOS = ['nucleo', 'tempo', 'texto', 'cartoes', 'jogo', 'aparelho', 'tabela', 'balanca', 'final'];
+const BLOCOS = ['nucleo', 'tempo', 'texto', 'cartoes', 'jogo', 'aparelho', 'tabela', 'balanca', 'final', 'telas'];
 
 const argv = process.argv.slice(2);
 const arg = (n, p) => { const i = argv.indexOf(n); return i >= 0 ? argv[i + 1] : p; };
@@ -89,18 +89,20 @@ if (arg('--falas')) {
 
 // ---------- vars: contas do pacote + vars do vídeo ----------
 let vars = Object.assign({}, pac.vars || {}, V.vars || {});
-if (V.contas) {
-  if (!PAC || !fs.existsSync(path.join(PAC, 'contas.mjs'))) throw new Error('video.contas pede contas.mjs no pacote');
-  const mod = await import(pathToFileURL(path.join(PAC, 'contas.mjs')).href);
-  vars = Object.assign(vars, mod.contas(V.contas));
-}
+// arquivos JSON do pacote viram vars ("varsArquivos": {"nome": "arquivo.json"} -> "$nome.a.b")
+for (const [k, f] of Object.entries(pac.varsArquivos || {})) vars[k] = JSON.parse(fs.readFileSync(path.join(PAC, f), 'utf8'));
 const pega = (o, k) => k.split('.').reduce((x, y) => x?.[y], o);
 const sub = x => {
-  if (typeof x === 'string' && /^\$[A-Za-z_][\w.]*$/.test(x)) { const v = pega(vars, x.slice(1)); if (v === undefined) throw new Error('var inexistente ' + x); return v; }
+  if (typeof x === 'string' && /^\$[A-Za-z_][\w.-]*$/.test(x)) { const v = pega(vars, x.slice(1)); if (v === undefined) throw new Error('var inexistente ' + x); return v; }
   if (Array.isArray(x)) return x.map(sub);
   if (x && typeof x === 'object') return Object.fromEntries(Object.entries(x).map(([k, v]) => [k, sub(v)]));
   return x;
 };
+if (V.contas) {
+  if (!PAC || !fs.existsSync(path.join(PAC, 'contas.mjs'))) throw new Error('video.contas pede contas.mjs no pacote');
+  const mod = await import(pathToFileURL(path.join(PAC, 'contas.mjs')).href);
+  vars = Object.assign(vars, mod.contas(sub(V.contas)));   // contas podem citar vars (ex.: valores tirados de um arquivo de dados)
+}
 // "@palavra" escrito dentro de uma fala aponta para aquela fala
 const naFala = (x, fi) => {
   if (typeof x === 'string') return x.replace(/@(?![0-9]+:)(?=[0-9A-Za-zÀ-ɏ])/g, `@${fi}:`);
@@ -164,7 +166,7 @@ fs.writeFileSync(path.join(OUT, 'video.html'), `<!doctype html>
 <meta charset="utf-8">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=${encodeURIComponent(tk.fonte)}:wght@500;600;700;800;900&display=block" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=${encodeURIComponent(tk.fonte)}:wght@400;500;600;700;800;900&display=block" rel="stylesheet">
 <style>
 :root{${Object.entries(tk).filter(([k, v]) => String(v).startsWith('#')).map(([k, v]) => `--${k}:${v}`).join(';')}}
 html,body{margin:0;padding:0;background:${tk.bg};width:1080px;height:1920px;overflow:hidden}
@@ -187,7 +189,8 @@ html,body{margin:0;padding:0;background:${tk.bg};width:1080px;height:1920px;over
 `);
 for (const f of (V.arquivos || [])) {
   const src = f.startsWith('pacote:') ? path.join(PAC, f.slice(7)) : path.resolve(BASE, f);
-  fs.copyFileSync(src, path.join(OUT, path.basename(src)));
+  if (fs.statSync(src).isDirectory()) fs.cpSync(src, path.join(OUT, path.basename(src)), { recursive: true, filter: s => !s.endsWith('.DS_Store') });   // pasta: vai inteira, com o mesmo nome
+  else fs.copyFileSync(src, path.join(OUT, path.basename(src)));
 }
 const AUD = arg('--audio');
 if (AUD) { const falta = [...new Set([...narracao.map(n => n.arquivo), ...ev.map(e => e.som)])].filter(f => !fs.existsSync(path.join(AUD, f))); if (falta.length) throw new Error('áudios faltando em ' + AUD + ': ' + falta.join(', ')); }

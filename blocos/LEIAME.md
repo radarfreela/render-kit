@@ -77,6 +77,27 @@ marca), `max`, `min`, `abs`, `DUR`, `w(i,'palavra',n)`. Marcas são preguiçosas
 | `relogio` | relógio girando (tempo correndo) | `x`, `y`, `de`, `ate`, `cor` |
 | `final` | logo + endereço sendo digitado + texto legal | `logo`, `logoLargura`, `em`, `url`, `sufixo`, `urlEm`, `legal` |
 | `rodape` | aviso fixo no rodapé | `texto`, `y`, `de`, `ate` |
+| `card-jogo` | cartão de jogo de app (tema claro): selo, variação %, data, escudos + nomes, 3 colunas com valor + imagem + nome, rodapé com botão | `pos`, `k` (escala), `largura` (px do app), `tema`, `dados`, `destaque[]`, `revela[]`, `conta`, `toque`, `acende`, `zoom`, `centro` |
+| `card-entrada` | cartão com N blocos lado a lado (rótulo, valor, imagem, nome, selo), valor no topo, linha de marca e rodapé com botão | idem `card-jogo` + `conta{de,para,prefixo}` (valor do topo) |
+| `app-moldura` | janela de app (tema claro) com barra lateral opcional, barras de topo (`titulo`, `abas`, `resumo`, `busca`) e lista de cartões que rola | `pos`, `k`, `largura`, `altura`, `lateral{logo,grupos}`, `topo[]`, `lista[]`, `tipoLista`, `rolagem`, `acende{indice,em}`, `cartao{indice,...}`, `zoom`, `zoomJanela` |
+
+### Telas de app (`telas.js`)
+
+Medidas escritas em px do app e multiplicadas por `k` (o texto sai nítido no tamanho final). Cores em `tema`
+(`fundo texto cartao secundario apagado mudo borda primaria destaque positivo negativo negativoTexto ganho ganhoFundo
+perda perdaFundo seloA seloB resumo resumoFundo lateral lateralBorda sombra`); o padrão é um tema claro neutro.
+
+- `dados` do `card-jogo`: `{selo, variacao, variacaoSinal, data, casa:{nome,escudo}, fora:{nome,escudo}, vs, vias:[{rotulo, valor, texto, imagem, nome}] x3, rodape, botao}`.
+- `dados` do `card-entrada`: `{selo, valor, valorSinal, casa, fora, vs, marca:{selo:{texto,estilo}, texto}, blocos:[{rotulo, texto, imagem, nome, selo:{texto, estilo:'a'|'b'}}], rodape, botao}`.
+- Animações (todas por tempo, sem estado entre quadros): `destaque` (aro + escala + valor na cor de destaque, por coluna),
+  `revela` (imagem e nome aparecem, por coluna), `conta` (valores contando), `toque {em, alvo:'botao'|coluna}` (dedo + onda + botão
+  afundando), `acende {em, ate}` (aro no cartão), `zoom [{em, dur, escala, foco, centra, ate, saida}]` (câmera se aproxima do foco e
+  o traz para o centro; na moldura o conteúdo se aproxima dentro da janela parada), `rolagem [[t, índice|{y}, dur, ease]]` (lista).
+- `card-jogo` e `card-entrada` expõem `celula(linha, coluna)`: o bloco `voo` pode sair de uma coluna do cartão (`de:{ator, celula:[0,k]}`).
+- `cartao` (comprovante) ganhou `imagem` (logo antes do nome); nome comprido encolhe para caber.
+
+`compor.mjs`: `arquivos` aceita pasta (`"pacote:app"` copia a pasta inteira para o molde); o pacote pode ter
+`varsArquivos: {"nome": "arquivo.json"}` (vira `"$nome.a.b"`); `contas` do vídeo podem citar vars.
 
 Núcleo (`nucleo.js`): `RK.u` (easing `oc ob io oe lin`, `P`, `lerp`, `milhar`, `rnd`), `RK.trilha`, `RK.ent`,
 `RK.S`/`RK.SC`, `RK.criarTema`, `RK.fundo` (brilhos com janelas + partículas + explosões + ondas),

@@ -5,7 +5,7 @@
   const POS = (ctx, p, padrao) => RK.trilha(p.pos || [[0, padrao || { x: 540, y: 960, s: 1, o: 1 }]], ctx.t);
 
   // ---------- cartão / comprovante ----------
-  // params: pos (trilha), cab, corCab, corCabTexto, nome, etiqueta, rotulo, valor, fim ('ok'|'x'), selo (texto|null),
+  // params: pos (trilha), cab, corCab, corCabTexto, nome, imagem (logo antes do nome), etiqueta, rotulo, valor, fim ('ok'|'x'), selo (texto|null),
   //   estado: { inicial:{ate,cheio,pago,selo}, preenche, paga, perde, carimba }, pulsos:[{em,dur,amp,ate}]
   // expõe: pos(t) (centro do cartão em t)
   RK.css(`.slip{width:360px;height:470px;border-radius:34px;background:linear-gradient(180deg,rgba(24,36,70,.97),rgba(10,17,36,.98));border:3px solid rgba(111,155,255,.22);box-sizing:border-box;box-shadow:0 30px 80px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.08)}
@@ -24,7 +24,7 @@
     const c = ctx.el(`<div class="a slip"></div>`);
     ctx.el(`<div class="cab" style="background:${ctx.cor(p.corCab || 'az')};color:${ctx.cor(p.corCabTexto || '#fff')}">${p.cab || ''}</div>`, c);
     const ph = [ctx.el(`<div class="ph" style="top:128px"></div>`, c), ctx.el(`<div class="ph" style="top:230px;height:60px;left:92px;width:170px;border-radius:18px"></div>`, c)];
-    const bn = ctx.el(`<div class="bn">${p.nome || ''}${p.etiqueta ? `<span class="etq" style="background:${corEtq}">${p.etiqueta}</span>` : ''}</div>`, c);
+    const bn = ctx.el(`<div class="bn">${p.imagem ? `<img src="${p.imagem}" style="width:1.05em;height:1.05em;border-radius:.27em;object-fit:contain;background:#fff;vertical-align:-.2em;margin-right:.25em">` : ''}${p.nome || ''}${p.etiqueta ? `<span class="etq" style="background:${corEtq}">${p.etiqueta}</span>` : ''}</div>`, c);
     const ol = ctx.el(`<div class="ol">${p.rotulo || ''}</div>`, c);
     const od = ctx.el(`<div class="od">${p.valor ?? ''}</div>`, c);
     const vz = ctx.el(`<div class="vz"></div>`, c);
@@ -46,6 +46,7 @@
         if (S.perd > 0) st.o *= lerp(1, .4, S.perd);
         RK.SC(c, 360, 470, st); if (st.o <= 0.003) return;
         ph.forEach(e => e.style.opacity = 1 - S.fill);
+        if (!bn._ok && (typeof document === 'undefined' || !document.fonts || document.fonts.status === 'loaded')) { bn._ok = 1; const w = bn.scrollWidth; if (w > 330) bn.style.fontSize = (44 * 330 / w).toFixed(1) + 'px'; }   // nome comprido encolhe para caber
         [bn, ol, od].forEach(e => { e.style.opacity = S.fill; e.style.transform = `scale(${lerp(.6, 1, ob(S.fill))})`; });
         vz.style.opacity = (S.pago > 0 || S.perd > 0 || S.selo > 0) ? 0 : 1;
         const pk = x ? S.perd : S.pago; ok.style.visibility = pk > 0 ? 'visible' : 'hidden'; ok.style.opacity = cl(pk * 3);
