@@ -12,6 +12,7 @@ on:
       arquivo: { description: 'html do molde', default: 'video.html' }
       nome: { description: 'nome do mp4', default: 'video' }
       pedacos: { description: 'índices dos pedaços (JSON); o total é o tamanho da lista', default: '[0,1,2,3,4,5,6,7]' }
+      k4: { description: 'gravar em 4K (sim/nao)', default: 'nao' }
 permissions:
   contents: read
 env:
@@ -20,6 +21,7 @@ env:
   AUDIO: ${{ inputs.audio }}
   ARQUIVO: ${{ inputs.arquivo }}
   NOME: ${{ inputs.nome }}
+  K4: ${{ inputs.k4 }}
   AWS_DEFAULT_REGION: auto
   AWS_REQUEST_CHECKSUM_CALCULATION: when_required
   AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
@@ -60,7 +62,7 @@ jobs:
           [ -f "molde/$ARQUIVO" ] || { echo "molde incompleto no R2"; exit 1; }
       - name: Gravar pedaço
         env: { I: '${{ matrix.i }}', N: '${{ strategy.job-total }}' }
-        run: node gravar.mjs --molde molde --arquivo "$ARQUIVO" --pedaco "$I/$N" --sem-audio --saida p.mp4 --saida-leve pl.mp4 --saida-45 pq.mp4
+        run: node gravar.mjs --molde molde --arquivo "$ARQUIVO" --pedaco "$I/$N" --sem-audio $( [ "$K4" = sim ] && echo --4k ) --saida p.mp4 --saida-leve pl.mp4 --saida-45 pq.mp4
       - name: Subir pedaço para o R2
         env:
           I: ${{ matrix.i }}

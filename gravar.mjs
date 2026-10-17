@@ -19,6 +19,8 @@ const FPS = Number(arg('--fps', 30));
 const QUADROS = arg('--quadros'), PEDACO = arg('--pedaco'), SEM_AUDIO = process.argv.includes('--sem-audio');
 const LEVE = arg('--saida-leve'), F45 = arg('--saida-45');
 const LARG = 1080, ALT = 1920;
+const K4 = process.argv.includes('--4k');            // grava em 2160x3840 (a leve e a 4:5 continuam 1080)
+const OW = K4 ? 2160 : 1080, OH = K4 ? 3840 : 1920;
 
 const TIPOS = { '.html': 'text/html', '.js': 'text/javascript', '.jsx': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml' };
 const servidor = http.createServer((req, res) => {
@@ -34,7 +36,7 @@ const pg = await nav.newPage();
 pg.on('pageerror', e => console.error('erro na página:', e.message));
 
 async function abrir(escala) {
-  await pg.setViewport({ width: LARG, height: ALT + 120, deviceScaleFactor: escala });
+  await pg.setViewport({ width: LARG, height: ALT + 120, deviceScaleFactor: escala * (K4 ? 2 : 1) });
   await pg.evaluateOnNewDocument?.(() => {});
   await pg.goto(URL_, { waitUntil: 'networkidle0', timeout: 120000 });
   await pg.evaluate(() => document.fonts.ready);
@@ -80,7 +82,11 @@ if (PEDACO) { const [i, N] = PEDACO.split('/').map(Number); de = Math.floor(n * 
 fs.mkdirSync(path.dirname(SAIDA), { recursive: true });
 const AUD = SEM_AUDIO ? ['-an'] : ['-map', '1:a', '-c:a', 'aac', '-b:a', '128k', '-shortest'];
 const extras = [LEVE, F45].filter(Boolean).length;
-const filtro = `[0:v]scale=${LARG}:${ALT}:flags=lanczos,format=yuv420p` + (extras ? `,split=${extras + 1}[v0]` + (LEVE ? '[vl]' : '') + (F45 ? '[vq];[vq]crop=1080:1350:0:20[v45]' : '') : '[v0]');
+const ramos = 1 + extras;
+const filtro = `[0:v]split=${ramos}` + '[s0]' + (LEVE ? '[s1]' : '') + (F45 ? '[s2]' : '') + ';' +
+  `[s0]scale=${OW}:${OH}:flags=lanczos,format=yuv420p[v0]` +
+  (LEVE ? ';[s1]scale=1080:1920:flags=lanczos,format=yuv420p[vl]' : '') +
+  (F45 ? ';[s2]scale=1080:1920:flags=lanczos,crop=1080:1350:0:20,format=yuv420p[v45]' : '');
 const ff = spawn('ffmpeg', ['-y', '-v', 'error', '-f', 'image2pipe', '-framerate', String(FPS), '-c:v', 'mjpeg', '-i', '-',
   ...(SEM_AUDIO ? [] : ['-f', 'lavfi', '-i', 'anullsrc=r=48000:cl=stereo']), '-filter_complex', filtro,
   '-map', '[v0]', '-c:v', 'libx264', '-preset', 'medium', '-crf', '18', ...AUD, '-movflags', '+faststart', SAIDA,
