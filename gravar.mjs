@@ -31,7 +31,9 @@ const servidor = http.createServer((req, res) => {
 }).listen(0);
 const URL_ = `http://127.0.0.1:${servidor.address().port}/${encodeURIComponent(ARQUIVO)}`;
 
-const nav = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage', '--hide-scrollbars'] });
+const nav = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage', '--hide-scrollbars',
+  // WebGL sem placa de vídeo (moldes 3D com three.js): renderizador de software
+  '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const pg = await nav.newPage();
 pg.on('pageerror', e => console.error('erro na página:', e.message));
 
@@ -40,6 +42,8 @@ async function abrir(escala) {
   await pg.evaluateOnNewDocument?.(() => {});
   await pg.goto(URL_, { waitUntil: 'networkidle0', timeout: 120000 });
   await pg.evaluate(() => document.fonts.ready);
+  // molde que carrega coisa assíncrona (texturas, módulos) avisa com window.__pronto = true
+  await pg.waitForFunction(() => window.__pronto !== false && (window.__pronto === true || typeof window.render === 'function' || document.querySelector('[data-om-sync-seek]')), { timeout: 120000 });
   await new Promise(r => setTimeout(r, 2500));
   return pg.evaluate(() => {
     const el = document.querySelector('[data-om-sync-seek]');
