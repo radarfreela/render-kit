@@ -1,0 +1,54 @@
+name: montar-ffmpeg
+run-name: montar-ffmpeg ${{ inputs.nome }}
+# Roda um script de montagem (Python + ffmpeg) que veio do R2 e devolve o mp4 ao R2.
+# Repo público: aqui só o código do runner; script, vídeo e imagens ficam no R2 privado (jobs/<id>/pacote.tgz).
+on:
+  workflow_dispatch:
+    inputs:
+      job: { description: 'id do job no R2 (jobs/<id>/pacote.tgz)', required: true }
+      script: { description: 'script .py dentro do pacote', required: true }
+      saida: { description: 'mp4 que o script gera, dentro do pacote', required: true }
+      nome: { description: 'nome do mp4 final', default: 'video' }
+permissions:
+  contents: read
+jobs:
+  montar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      JOB: ${{ inputs.job }}
+      SCRIPT: ${{ inputs.script }}
+      SAIDA: ${{ inputs.saida }}
+      NOME: ${{ inputs.nome }}
+    steps:
+      - name: Conferir entradas
+        run: |
+          for v in "$JOB" "$SCRIPT" "$SAIDA" "$NOME"; do
+            printf '%s' "$v" | grep -Eq '^[A-Za-z0-9._-]+$' || { echo "entrada inválida"; exit 1; }
+          done
+      - uses: actions/checkout@v4
+        with: { persist-credentials: false }
+      - uses: ./.github/actions/preparar
+        with: { node: 'false', emoji: 'false' }
+      - name: Pillow
+        run: python3 -m pip install --quiet pillow
+      - name: Baixar pacote do R2
+        env:
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          ./r2.sh get "jobs/$JOB/pacote.tgz" pacote.tgz > /dev/null 2>&1 || { echo "falha no R2"; exit 1; }
+          mkdir -p p && tar -xzf pacote.tgz -C p
+      - name: Montar
+        run: cd p && python3 "$SCRIPT" > /dev/null
+      - name: Subir saída para o R2
+        env:
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          ./r2.sh put "p/$SAIDA" "saida/$GITHUB_RUN_ID/$NOME.mp4" > /dev/null 2>&1 || { echo "falha no R2"; exit 1; }
+          echo "saída: saida/$GITHUB_RUN_ID/$NOME.mp4"
