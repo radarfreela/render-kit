@@ -1,0 +1,42 @@
+name: limpar-r2
+# Apaga do R2 as sobras de montagem e de upload com mais de 3 dias.
+# Só estas pastas: jobs/, saida/, meta-upload/, meta-tmp/, meta/.
+# Nunca toca em gta/, mentereinada/ ou qualquer outra pasta.
+on:
+  schedule:
+    - cron: "0 6 * * *"   # todo dia, 03h de Brasília
+  workflow_dispatch:
+    inputs:
+      dias:
+        description: "apagar o que tiver mais de N dias"
+        default: "3"
+
+jobs:
+  limpar:
+    runs-on: ubuntu-latest
+    steps:
+      - run: pip install -q boto3
+      - env:
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          DIAS: ${{ github.event.inputs.dias || '3' }}
+        shell: python
+        run: |
+          import os, datetime, boto3
+          PASTAS = ("jobs/", "saida/", "meta-upload/", "meta-tmp/", "meta/")
+          s3 = boto3.client("s3", endpoint_url=os.environ["R2_ENDPOINT"],
+                            aws_access_key_id=os.environ["R2_ACCESS_KEY_ID"],
+                            aws_secret_access_key=os.environ["R2_SECRET_ACCESS_KEY"], region_name="auto")
+          b = os.environ["R2_BUCKET"]
+          corte = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=int(os.environ["DIAS"]))
+          velhos, total = [], 0
+          for pasta in PASTAS:
+              for pag in s3.get_paginator("list_objects_v2").paginate(Bucket=b, Prefix=pasta):
+                  for o in pag.get("Contents", []):
+                      if o["LastModified"] < corte:
+                          velhos.append({"Key": o["Key"]}); total += o["Size"]
+          for i in range(0, len(velhos), 1000):
+              s3.delete_objects(Bucket=b, Delete={"Objects": velhos[i:i + 1000], "Quiet": True})
+          print(f"apagados {len(velhos)} arquivos, {total / 1e9:.2f} GB (mais de {os.environ['DIAS']} dias)")
