@@ -39,7 +39,7 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           [ -n "$GEMINI_API_KEY" ] || { echo "falta o segredo GEMINI_API_KEY"; exit 1; }
-          for v in $VOZES; do python3 vozes_gemini.py --textos textos.json --voz "$v" --saida "saida/voz_$v" --amostra > /dev/null 2>&1 || echo "falhou $v"; done
+          for v in $VOZES; do python3 vozes_gemini.py --textos textos.json --voz "$v" --saida "saida/voz_$v" --amostra 2>&1 | grep -E '^(ERRO|amostra|[A-Za-z]+ \|)' | cut -c1-200 || true; done
           ls saida
       - name: Subir saída para o R2
         env:
