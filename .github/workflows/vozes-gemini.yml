@@ -11,7 +11,7 @@ permissions:
 jobs:
   vozes:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 40
     env:
       PROJETO: ${{ inputs.projeto }}
       TEXTOS: ${{ inputs.textos }}
@@ -42,7 +42,20 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           [ -n "$GEMINI_API_KEY" ] || { echo "falta o segredo GEMINI_API_KEY"; exit 1; }
-          for v in $VOZES; do python3 vozes_gemini.py --textos textos.json --voz "$v" --saida "saida/voz_$v" $( [ "$MODO" = cenas ] || echo --amostra ) 2>&1 | sed -E 's/AIza[A-Za-z0-9_-]+/[chave]/g' | tail -20 | cut -c1-240 || true; done
+          for v in $VOZES; do
+            if [ "$MODO" = cenas ]; then   # uma fala por pedido, com pausa (o plano grátis limita pedidos por minuto)
+              for c in $(jq -r '.cenas[].cena' textos.json); do
+                for tent in 1 2 3; do
+                  python3 vozes_gemini.py --textos textos.json --voz "$v" --saida "saida/voz_$v" --so "$c" > log.txt 2>&1 || true
+                  sed -E 's/AIza[A-Za-z0-9_-]+/[chave]/g' log.txt | grep -E "ok|ERRO" | cut -c1-160
+                  [ -f "saida/voz_$v/$c.wav" ] && break; sleep 45
+                done
+                sleep 22
+              done
+            else
+              python3 vozes_gemini.py --textos textos.json --voz "$v" --saida "saida/voz_$v" --amostra 2>&1 | sed -E 's/AIza[A-Za-z0-9_-]+/[chave]/g' | tail -20 | cut -c1-240 || true
+            fi
+          done
           ls saida
       - name: Subir saída para o R2
         env:
