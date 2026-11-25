@@ -5,6 +5,7 @@ on:
       projeto: { description: 'prefixo do projeto no R2', required: true }
       textos: { description: 'arquivo de textos dentro do projeto (formato cenas)', default: 'molde/narracao-gemini.json' }
       vozes: { description: 'vozes (JSON)', default: '["narrador","jovem","grave","feminina"]' }
+      travar: { description: 'sim = clonar a referência vozes/<voz>.wav + .txt do projeto', default: 'nao' }
 permissions:
   contents: read
 jobs:
@@ -19,6 +20,7 @@ jobs:
       PROJETO: ${{ inputs.projeto }}
       TEXTOS: ${{ inputs.textos }}
       VOZ: ${{ matrix.voz }}
+      TRAVAR: ${{ inputs.travar }}
       AWS_DEFAULT_REGION: auto
       AWS_REQUEST_CHECKSUM_CALCULATION: when_required
       AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
@@ -42,9 +44,10 @@ jobs:
         run: |
           r2() { aws s3 "$@" --endpoint-url "$R2_ENDPOINT" --only-show-errors > /dev/null 2>&1 < /dev/null; }   # sem eco: log de repo público
           r2 cp "s3://$R2_BUCKET/$PROJETO/$TEXTOS" textos.json || { echo "falha no R2"; exit 1; }
+          if [ "$TRAVAR" = sim ]; then r2 cp "s3://$R2_BUCKET/$PROJETO/vozes/$VOZ.wav" ref.wav && r2 cp "s3://$R2_BUCKET/$PROJETO/vozes/$VOZ.txt" ref.txt || { echo "falta referência"; exit 1; }; fi
       - name: Gerar
         run: |
-          python vozes_qwen.py --textos textos.json --voz "$VOZ" --saida "saida/voz_$VOZ" 2>&1 | grep -v -i "warn" | tail -40
+          EXTRA=""; [ -f ref.wav ] && EXTRA="--ref ref.wav --ref_texto ref.txt"; python vozes_qwen.py --textos textos.json --voz "$VOZ" --saida "saida/voz_$VOZ" $EXTRA 2>&1 | grep -v -i "warn" | tail -40
           cd "saida/voz_$VOZ" && ls f*.wav | sort | sed 's/^/file /' > l.txt && ffmpeg -v error -y -f concat -safe 0 -i l.txt -af apad=pad_dur=0 "../amostra_$VOZ.mp3" && rm l.txt
       - name: Subir saída para o R2
         env:
