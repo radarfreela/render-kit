@@ -1,0 +1,58 @@
+name: vozes-qwen
+on:
+  workflow_dispatch:
+    inputs:
+      projeto: { description: 'prefixo do projeto no R2', required: true }
+      textos: { description: 'arquivo de textos dentro do projeto (formato cenas)', default: 'molde/narracao-gemini.json' }
+      vozes: { description: 'vozes (JSON)', default: '["narrador","jovem","grave","feminina"]' }
+permissions:
+  contents: read
+jobs:
+  voz:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      matrix:
+        voz: ${{ fromJSON(inputs.vozes) }}
+    env:
+      PROJETO: ${{ inputs.projeto }}
+      TEXTOS: ${{ inputs.textos }}
+      VOZ: ${{ matrix.voz }}
+      AWS_DEFAULT_REGION: auto
+      AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+      AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+    steps:
+      - name: Conferir entradas
+        run: |
+          for v in "$PROJETO" "$TEXTOS"; do printf '%s' "$v" | grep -Eq '^[A-Za-z0-9._/-]+$' && ! printf '%s' "$v" | grep -q '\.\.' || { echo "entrada inválida"; exit 1; }; done
+          printf '%s' "$VOZ" | grep -Eq '^[a-z]+$' || { echo "voz inválida"; exit 1; }
+      - uses: actions/checkout@v4
+        with: { persist-credentials: false }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq espeak-ng ffmpeg > /dev/null
+      - run: pip install -q -U qwen-tts soundfile --extra-index-url https://download.pytorch.org/whl/cpu 2>&1 | tail -5
+      - name: Baixar textos do R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          r2() { aws s3 "$@" --endpoint-url "$R2_ENDPOINT" --only-show-errors > /dev/null 2>&1 < /dev/null; }   # sem eco: log de repo público
+          r2 cp "s3://$R2_BUCKET/$PROJETO/$TEXTOS" textos.json || { echo "falha no R2"; exit 1; }
+      - name: Gerar
+        run: |
+          python vozes_qwen.py --textos textos.json --voz "$VOZ" --saida "saida/voz_$VOZ" 2>&1 | grep -v -i "warn" | tail -40
+          cd "saida/voz_$VOZ" && ls f*.wav | sort | sed 's/^/file /' > l.txt && ffmpeg -v error -y -f concat -safe 0 -i l.txt -af apad=pad_dur=0 "../amostra_$VOZ.mp3" && rm l.txt
+      - name: Subir saída para o R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          r2() { aws s3 "$@" --endpoint-url "$R2_ENDPOINT" --only-show-errors > /dev/null 2>&1 < /dev/null; }
+          r2 cp --recursive saida/ "s3://$R2_BUCKET/saida/$GITHUB_RUN_ID/" || { echo "falha no R2"; exit 1; }
+          echo "saída: saida/$GITHUB_RUN_ID/"
