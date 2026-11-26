@@ -1,11 +1,12 @@
 name: universo
-run-name: universo ${{ inputs.id }}
+run-name: universo ${{ inputs.id }} ${{ inputs.escritor }}
 # Fábrica do Universo Detalhado, sem R2: a API escreve a cena do roteiro aprovado (universo/fabrica/pauta.json), voz Remy,
 # 8 máquinas gravam um pedaço cada, uma junta e mixa. O vídeo fica como artefato do próprio run (baixar com gh run download).
 on:
   workflow_dispatch:
     inputs:
       id: { description: 'id da pauta', required: true }
+      escritor: { description: 'quem escreve a cena: claude ou gemini', default: 'claude' }
 permissions:
   contents: read
 jobs:
@@ -28,6 +29,8 @@ jobs:
       - name: Cena (API)
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ESCRITOR: ${{ inputs.escritor }}
           ID: ${{ inputs.id }}
         run: python3 universo/fabrica/gerar_cena.py "$ID" "$RUNNER_TEMP/u"
       - name: Voz e sons

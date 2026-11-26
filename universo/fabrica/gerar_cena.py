@@ -3,7 +3,7 @@
 # grava quadros de teste, confere a folha de quadros contra o roteiro e corrige (até 2 voltas).
 #   python3 gerar_cena.py <id da pauta> <pasta de saída>
 # Saída: <pasta>/molde/{video.html,_meio.js,_logica.js,falas.js,palavras-tempo.js(provisório)} + plano-sons.json + custo.json
-import json, re, sys, pathlib, base64, subprocess, time, http.server, threading, functools, socket
+import json, re, sys, os, pathlib, base64, subprocess, time, http.server, threading, functools, socket, urllib.request, urllib.error
 import anthropic
 
 AQUI = pathlib.Path(__file__).resolve().parent
@@ -82,6 +82,52 @@ def chamar(conteudo, max_tokens=64000, esforco='medium'):
             if e.status_code in (429, 500, 529) and tent < 2: time.sleep(30 * (tent + 1)); continue
             raise
 
+# --- escritor alternativo (dono 26/11: "outra IA escreve, a Claude só confere") ---
+ESCRITOR = os.environ.get('ESCRITOR', 'claude')
+GEM_URL = 'https://generativelanguage.googleapis.com/v1beta/'
+def _gem(caminho, corpo=None):
+    req = urllib.request.Request(GEM_URL + caminho, data=json.dumps(corpo).encode() if corpo is not None else None,
+                                 headers={'Content-Type': 'application/json', 'x-goog-api-key': os.environ['GEMINI_API_KEY']})
+    with urllib.request.urlopen(req, timeout=900) as r: return json.load(r)
+def gem_modelos():
+    ms = [m['name'].split('/')[-1] for m in _gem('models?pageSize=200').get('models', []) if 'generateContent' in m.get('supportedGenerationMethods', [])]
+    ms = [m for m in ms if m.startswith('gemini') and not any(x in m for x in ('image', 'tts', 'live', 'audio', 'embed', 'lite', 'nano', 'robot', 'computer'))]
+    def chave(m):
+        v = re.search(r'gemini-(\d+(?:\.\d+)?)', m); v = float(v.group(1)) if v else 0
+        return (('pro' in m), v, 'preview' not in m and 'exp' not in m)
+    ms.sort(key=chave, reverse=True); return ms
+GEM_LISTA = []
+def gemini(texto):
+    if not GEM_LISTA: GEM_LISTA.extend(gem_modelos()); print('modelos Gemini:', ', '.join(GEM_LISTA[:6]), flush=True)
+    sistema = SISTEMA + '\n\n' + '\n\n'.join(f'### {k}\n```js\n{v}\n```' for k, v in CONTRATO.items()) + '\n\n' + exemplo_txt()
+    for m in list(GEM_LISTA):
+        for tent in range(2):
+            try:
+                r = _gem(f'models/{m}:generateContent', {'systemInstruction': {'parts': [{'text': sistema}]}, 'contents': [{'role': 'user', 'parts': [{'text': texto}]}],
+                                                       'generationConfig': {'maxOutputTokens': 65536, 'temperature': 0.7}})
+                u = r.get('usageMetadata', {}); c = (r.get('candidates') or [{}])[0]
+                txt = ''.join(pt.get('text', '') for pt in c.get('content', {}).get('parts', []) if not pt.get('thought'))
+                print(f'gemini {m}: entrada {u.get("promptTokenCount")} saída {u.get("candidatesTokenCount")} pensamento {u.get("thoughtsTokenCount")} fim {c.get("finishReason")}', flush=True)
+                return txt, c.get('finishReason')
+            except urllib.error.HTTPError as e:
+                corpo = e.read().decode()[:300]; print(f'gemini {m}: HTTP {e.code} {corpo}', flush=True)
+                if e.code in (500, 503) and tent == 0: time.sleep(30); continue
+                break
+            except Exception as e: print(f'gemini {m}: {e}', flush=True); break
+        GEM_LISTA.remove(m)
+    raise SystemExit('nenhum modelo Gemini respondeu')
+def escrever(texto, esforco='medium'):
+    return gemini(texto) if ESCRITOR == 'gemini' else chamar(esforco=esforco, conteudo=texto)
+def conferir_claude(img_b64):   # só o veredito, sem código: barato
+    r = CLI.messages.create(model=MODELO, max_tokens=4000, thinking={'type': 'adaptive'}, output_config={'effort': 'low'},
+        messages=[{'role': 'user', 'content': [{'type': 'image', 'source': {'type': 'base64', 'media_type': 'image/jpeg', 'data': img_b64}},
+            {'type': 'text', 'text': f'Folha de quadros de um vídeo 3D (2 quadros por fala: começo e fim; a legenda mostra a palavra falada). ROTEIRO:\n{roteiro_txt()}\n\n'
+             'Confira fala por fala: o que a voz diz está acontecendo na tela? O objeto está inteiro no quadro, sem corte e sem coisa na frente? A falha do "Mas" aparece? '
+             'O conserto do "Então" entra com movimento? Algo parado, preto, gigante, minúsculo, flutuando ou atravessando outra peça? '
+             'Se estiver tudo certo, responda só APROVADO. Se não, liste os problemas, um por linha, citando a fala e o que mudar. Sem código.'}]}])
+    u = r.usage; CUSTO[0] += (u.input_tokens * 4 + u.output_tokens * 20) / 1e6
+    return ''.join(b.text for b in r.content if b.type == 'text')
+
 def separar(txt):
     def bloco(rot):
         m = re.search(r'```(?:js|javascript|json)?[ \t]*(?://)?[ \t]*' + rot + r'[^\n]*\n(.*?)\n```', txt, re.S | re.I)
@@ -144,7 +190,7 @@ def roteiro_txt(): return '\n'.join(f'{i}: {f}' for i, f in enumerate(PAUTA['fal
 
 # 1) primeira versão
 for tent in range(2):
-    txt, stop = chamar(esforco=('medium', 'low')[tent], conteudo=f'ROTEIRO APROVADO ("{PAUTA["titulo"]}"):\n{roteiro_txt()}\n\nEscreva a cena completa seguindo as regras e o padrão dos exemplos. '
+    txt, stop = escrever(esforco=('low', 'low')[tent], texto=f'ROTEIRO APROVADO ("{PAUTA["titulo"]}"):\n{roteiro_txt()}\n\nEscreva a cena completa seguindo as regras e o padrão dos exemplos. '
                        'Responda SÓ com os três blocos (```js meio, ```js logica, ```json extra), sem explicação, e seja econômico no texto para caber.')
     try: meio, logica, extra = separar(txt); break
     except ValueError as e: print(f'tentativa {tent}: {e} (fim: {stop}, {len(txt)} letras) início:', txt[:200].replace(chr(10), ' '), flush=True)
@@ -153,18 +199,27 @@ montar(meio, logica, extra)
 # 2) conferir e corrigir até 2 vezes
 for volta in range(2):
     erros, folha = conferir()
+    img = None
     if erros:
         pedido = f'O código deu erro no navegador:\n' + '\n'.join(erros) + '\n\nCorrija e devolva os três blocos completos.'
         conteudo = pedido + f'\n\nROTEIRO:\n{roteiro_txt()}\n\nCÓDIGO ATUAL:\n```js meio\n{meio}\n```\n```js logica\n{logica}\n```\n```json extra\n{json.dumps(extra, ensure_ascii=False)}\n```'
     else:
         img = base64.b64encode(folha.read_bytes()).decode()
-        conteudo = [{'type': 'image', 'source': {'type': 'base64', 'media_type': 'image/jpeg', 'data': img}},
+        conteudo = [] if ESCRITOR == 'gemini' else [{'type': 'image', 'source': {'type': 'base64', 'media_type': 'image/jpeg', 'data': img}},
                     {'type': 'text', 'text': f'Esta é a folha de quadros da sua cena (2 quadros por fala: começo e fim; a legenda mostra a palavra falada). ROTEIRO:\n{roteiro_txt()}\n\n'
                      'Confira fala por fala, como o dono confere: o que a voz diz está acontecendo na tela? O objeto está inteiro no quadro, sem corte e sem coisa na frente? '
                      'A falha do "Mas" aparece? O conserto do "Então" entra com movimento? Algo parado, preto, gigante, minúsculo, flutuando ou atravessando outra peça? '
                      'Se estiver tudo certo, responda só com a palavra APROVADO. Se não, diga em uma linha o que corrige e devolva os três blocos completos corrigidos.\n\n'
                      f'CÓDIGO ATUAL:\n```js meio\n{meio}\n```\n```js logica\n{logica}\n```\n```json extra\n{json.dumps(extra, ensure_ascii=False)}\n```'}]
-    txt, stop = chamar(conteudo)
+    if ESCRITOR == 'gemini':
+        if erros: txt, stop = gemini(conteudo)
+        else:
+            parecer = conferir_claude(img).strip()
+            if parecer.upper().startswith('APROVADO'): print(f'volta {volta}: aprovado pela conferência', flush=True); break
+            print(f'volta {volta}: conferência pediu —', parecer.replace(chr(10), ' | ')[:400], flush=True)
+            txt, stop = gemini(f'A conferência dos quadros apontou estes problemas:\n{parecer}\n\nROTEIRO:\n{roteiro_txt()}\n\nCorrija e devolva os três blocos completos (```js meio, ```js logica, ```json extra), nada mais.\n\n'
+                               f'CÓDIGO ATUAL:\n```js meio\n{meio}\n```\n```js logica\n{logica}\n```\n```json extra\n{json.dumps(extra, ensure_ascii=False)}\n```')
+    else: txt, stop = chamar(conteudo)
     if not erros and txt.strip().upper().startswith('APROVADO'): print(f'volta {volta}: aprovado pela conferência', flush=True); break
     try: meio, logica, extra = separar(txt); montar(meio, logica, extra); print(f'volta {volta}: corrigido —', txt.strip().split('\n')[0][:200], flush=True)
     except ValueError as e: print('resposta sem blocos:', e, flush=True); break
