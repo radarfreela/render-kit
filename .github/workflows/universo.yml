@@ -4,6 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       id: { description: 'id da pauta', required: true }
+      voz: { description: 'remy ou gemini', required: false, default: 'remy' }
 permissions:
   contents: read
   actions: write
@@ -26,7 +27,7 @@ jobs:
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
         run: |
-          for t in 1 2 3; do timeout 300 pip install -q --timeout 60 anthropic playwright pillow && break; echo "pip travou, tentativa $t"; done
+          for t in 1 2 3; do timeout 300 pip install -q --timeout 60 anthropic playwright pillow edge-tts && break; echo "pip travou, tentativa $t"; done
           timeout 600 python -m playwright install --with-deps chromium > /dev/null
           for t in 1 2 3; do timeout 300 sh -c 'sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg jq >/dev/null' && break; done
           printf '%s\n%s\n%s\n' "$R2_ACCESS_KEY_ID" "$R2_SECRET_ACCESS_KEY" "$R2_ENDPOINT" > ~/.r2_lowticket && chmod 600 ~/.r2_lowticket
@@ -43,6 +44,7 @@ jobs:
       - name: Voz, sons e gravação
         env:
           GH_TOKEN: ${{ github.token }}
+          VOZ: ${{ inputs.voz }}
           ID: ${{ inputs.id }}
         run: python3 universo/fabrica/montar_video.py "$ID" "$RUNNER_TEMP/u/$ID"
       - name: Guardar a folha de conferência

@@ -23,25 +23,28 @@ J = 'jobs/u' + datetime.datetime.utcnow().strftime('%y%m%d%H%M') + ID; (P / 'job
 F = PAUTA['falas']; json.dump(F, open(P / 'falas.json', 'w'), ensure_ascii=False)
 json.dump({'estilo': ' ', 'cenas': [{'cena': f'f{i:02d}', 'texto': t} for i, t in enumerate(F)]}, open(P / 'molde/narracao-gemini.json', 'w'), ensure_ascii=False)
 (P / 'cenas').mkdir(exist_ok=True)
-# 1) voz (repete até completar) e corte do estalo
-subprocess.run(['sh', str(NAT / 'gerar_voz.sh'), str(P)], env=ENV, check=True)
-if len(list((P / 'cenas').glob('f*.wav'))) < len(F): raise SystemExit('voz incompleta (cota do Gemini)')
-subprocess.run(['python3', str(NAT / 'limpar_voz.py'), str(P)], env=ENV, check=True)
-# 2) tempo das palavras, alinhado ao roteiro
-r2('put', P / 'audio/voz.wav', f'{J}/audio/voz.wav'); rid = disparar('palavras.yml', projeto=J, pasta='audio')
-r2('get', f'saida/{rid}/palavras.json', P / 'palavras.json')
-n = lambda s: re.sub(r'[^a-z0-9]', '', unicodedata.normalize('NFD', s.lower()).encode('ascii', 'ignore').decode())
-PW = json.load(open(P / 'palavras.json'))['voz']; W = ' '.join(F).split()
-a, b = [n(p['w']) for p in PW], [n(w) for w in W]; sm = difflib.SequenceMatcher(None, a, b, autojunk=False); m = {}
-for op, i1, i2, j1, j2 in sm.get_opcodes():
-    if op == 'equal' or (i2 - i1) == (j2 - j1):
-        for k in range(j2 - j1): m[j1 + k] = (PW[i1 + k]['s'], PW[i1 + k]['e'])
-    elif j2 > j1:
-        s, e = (PW[i1]['s'], PW[i2 - 1]['e']) if i2 > i1 else (PW[i1 - 1]['e'], PW[i1 - 1]['e'] + .3); d = (e - s) / (j2 - j1)
-        for k in range(j2 - j1): m[j1 + k] = (s + k * d, s + (k + 1) * d)
-print('voz x roteiro:', round(sm.ratio(), 3), flush=True)
-if sm.ratio() < .9: raise SystemExit('a voz pulou ou trocou palavras demais')
-(P / 'molde/palavras-tempo.js').write_text('window.PAL=' + json.dumps([[w, round(m[j][0], 2), round(m[j][1], 2)] for j, w in enumerate(W)], ensure_ascii=False) + ';')
+if os.environ.get('VOZ', 'remy') == 'remy':   # Remy (sem cota): voz + tempo das palavras numa passada
+    subprocess.run(['python3', str(NAT / 'voz_remy.py'), str(P)], env=ENV, check=True)
+else:
+    # 1) voz (repete até completar) e corte do estalo
+    subprocess.run(['sh', str(NAT / 'gerar_voz.sh'), str(P)], env=ENV, check=True)
+    if len(list((P / 'cenas').glob('f*.wav'))) < len(F): raise SystemExit('voz incompleta (cota do Gemini)')
+    subprocess.run(['python3', str(NAT / 'limpar_voz.py'), str(P)], env=ENV, check=True)
+    # 2) tempo das palavras, alinhado ao roteiro
+    r2('put', P / 'audio/voz.wav', f'{J}/audio/voz.wav'); rid = disparar('palavras.yml', projeto=J, pasta='audio')
+    r2('get', f'saida/{rid}/palavras.json', P / 'palavras.json')
+    n = lambda s: re.sub(r'[^a-z0-9]', '', unicodedata.normalize('NFD', s.lower()).encode('ascii', 'ignore').decode())
+    PW = json.load(open(P / 'palavras.json'))['voz']; W = ' '.join(F).split()
+    a, b = [n(p['w']) for p in PW], [n(w) for w in W]; sm = difflib.SequenceMatcher(None, a, b, autojunk=False); m = {}
+    for op, i1, i2, j1, j2 in sm.get_opcodes():
+        if op == 'equal' or (i2 - i1) == (j2 - j1):
+            for k in range(j2 - j1): m[j1 + k] = (PW[i1 + k]['s'], PW[i1 + k]['e'])
+        elif j2 > j1:
+            s, e = (PW[i1]['s'], PW[i2 - 1]['e']) if i2 > i1 else (PW[i1 - 1]['e'], PW[i1 - 1]['e'] + .3); d = (e - s) / (j2 - j1)
+            for k in range(j2 - j1): m[j1 + k] = (s + k * d, s + (k + 1) * d)
+    print('voz x roteiro:', round(sm.ratio(), 3), flush=True)
+    if sm.ratio() < .9: raise SystemExit('a voz pulou ou trocou palavras demais')
+    (P / 'molde/palavras-tempo.js').write_text('window.PAL=' + json.dumps([[w, round(m[j][0], 2), round(m[j][1], 2)] for j, w in enumerate(W)], ensure_ascii=False) + ';')
 # 3) tempos reais das falas (lidos da própria página) → sons
 from playwright.sync_api import sync_playwright
 s0 = socket.socket(); s0.bind(('127.0.0.1', 0)); porta = s0.getsockname()[1]; s0.close()
