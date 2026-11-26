@@ -196,8 +196,8 @@ for tent in range(2):
     except ValueError as e: print(f'tentativa {tent}: {e} (fim: {stop}, {len(txt)} letras) início:', txt[:200].replace(chr(10), ' '), flush=True)
 else: raise SystemExit('a API não devolveu os blocos')
 montar(meio, logica, extra)
-# 2) conferir e corrigir até 2 vezes
-for volta in range(2):
+# 2) conferir e corrigir (Claude escrevendo: até 2 voltas; Gemini grátis: até 5)
+for volta in range(5 if ESCRITOR == 'gemini' else 2):
     erros, folha = conferir()
     img = None
     if erros:
