@@ -114,5 +114,131 @@
    "E pronto! Você construiu um campo de futebol.",
    "Se você quer entender como tudo funciona, siga a nossa página. Todos os dias, vídeos como esse."
   ]
+ },
+ {
+  "id": "ponte",
+  "titulo": "Como construir uma ponte estaiada",
+  "legenda": "Como uma ponte fica pendurada no ar? Cada parte resolve um problema.",
+  "falas": [
+   "Se você joga um tronco de uma margem à outra do rio, já tem uma ponte.",
+   "Mas o rio é largo, e o tronco quebra no meio.",
+   "Então você finca colunas de concreto no fundo do rio, apoiadas na rocha. Esses são os pilares.",
+   "Mas cada pilar no meio do rio atrapalha a passagem dos barcos.",
+   "Então você levanta uma torre bem alta numa margem só. Esse é o mastro.",
+   "E do mastro você puxa cabos de aço que seguram a pista no ar. Esses são os estais.",
+   "Mas a pista é pesada demais pra montar de uma vez.",
+   "Então você monta pedaço por pedaço, saindo do mastro, e prende cada um num cabo novo. Esses são os segmentos.",
+   "Mas no calor o concreto e o aço esticam, e a pista racharia.",
+   "Então você deixa uma folga com dentes de metal no fim da pista. Essa é a junta de dilatação.",
+   "Mas o vento balança os cabos.",
+   "Então você prende amortecedores na ponta de cada cabo, que seguram o balanço.",
+   "E pronto! Você construiu uma ponte estaiada.",
+   "Se você quer entender como tudo funciona, siga a nossa página. Todos os dias, vídeos como esse."
+  ]
+ },
+ {
+  "id": "hidreletrica",
+  "titulo": "Como construir uma hidrelétrica",
+  "legenda": "Como a água do rio vira a luz da sua casa? Cada parte resolve um problema.",
+  "falas": [
+   "Se você coloca uma roda d'água no rio, já tem energia.",
+   "Mas a correnteza é fraca, e a roda gira devagar.",
+   "Então você fecha o rio com um muro gigante de concreto. Essa é a barragem.",
+   "A água para atrás do muro e forma um lago enorme. Esse é o reservatório.",
+   "Mas a água precisa descer com força.",
+   "Então você abre um tubo largo que leva a água lá de cima até embaixo. Esse é o conduto forçado.",
+   "Lá embaixo, a água bate nas pás e gira uma roda de metal. Essa é a turbina.",
+   "Mas só girar não acende lâmpada nenhuma.",
+   "Então a turbina gira ímãs dentro de bobinas de cobre, e isso cria eletricidade. Esse é o gerador.",
+   "Mas na época de chuva o lago enche demais e pode passar por cima do muro.",
+   "Então você abre comportas que soltam a água que sobra. Esse é o vertedouro.",
+   "E torres altas levam a energia até a cidade. Essas são as linhas de transmissão.",
+   "E pronto! Você construiu uma hidrelétrica.",
+   "Se você quer entender como tudo funciona, siga a nossa página. Todos os dias, vídeos como esse."
+  ]
+ },
+ {
+  "id": "tratamento",
+  "titulo": "Como construir uma estação de tratamento de água",
+  "legenda": "Como a água do rio fica limpa pra sair na torneira? Cada parte resolve um problema.",
+  "falas": [
+   "Se você pega água do rio num balde, já tem água em casa.",
+   "Mas ela vem com folha, galho e bicho.",
+   "Então você puxa a água por uma grade, que segura o lixo grande. Essa é a captação.",
+   "Mas a terra fininha continua misturada na água.",
+   "Então você joga um produto que gruda a sujeira em bolinhas. Essa é a floculação.",
+   "Mas as bolinhas ainda estão boiando.",
+   "Então você deixa a água parada num tanque, e as bolinhas afundam. Esse é o decantador.",
+   "Mas ainda sobra sujeira que o olho nem vê.",
+   "Então você faz a água descer por camadas de areia e pedra. Esse é o filtro.",
+   "Mas ainda pode ter micróbio.",
+   "Então você coloca cloro, que mata os micróbios. Essa é a desinfecção.",
+   "E a água limpa sobe pra uma caixa alta e desce pelos canos até a sua torneira. Esse é o reservatório.",
+   "E pronto! Você construiu uma estação de tratamento de água.",
+   "Se você quer entender como tudo funciona, siga a nossa página. Todos os dias, vídeos como esse."
+  ]
+ },
+ {
+  "id": "elevador",
+  "titulo": "Como construir um elevador",
+  "legenda": "Por que o elevador não cai se o cabo arrebentar? Cada parte resolve um problema.",
+  "falas": [
+   "Se você amarra uma caixa numa corda e puxa lá de cima, já tem um elevador.",
+   "Mas a caixa é pesada, e o braço não aguenta.",
+   "Então você enrola os cabos numa roda girada por um motor. Essa é a máquina de tração.",
+   "Mas o motor ainda faz força demais.",
+   "Então do outro lado dos cabos você pendura um bloco de ferro quase tão pesado quanto a caixa. Esse é o contrapeso.",
+   "Mas a caixa balança e bate na parede.",
+   "Então você prende trilhos de aço de cima a baixo, e a caixa desliza neles. Essas são as guias.",
+   "Mas e se o cabo arrebentar?",
+   "Então você coloca garras embaixo da caixa, que travam no trilho se ela descer rápido demais. Esse é o freio de segurança.",
+   "E no fundo do poço você põe molas que seguram qualquer pancada. Esses são os para-choques.",
+   "Mas a porta não pode abrir com a caixa longe.",
+   "Então você coloca uma trava que só solta a porta quando a caixa chega no andar.",
+   "E pronto! Você construiu um elevador.",
+   "Se você quer entender como tudo funciona, siga a nossa página. Todos os dias, vídeos como esse."
+  ]
+ },
+ {
+  "id": "metro",
+  "titulo": "Como construir um metrô",
+  "legenda": "Como cavam um túnel embaixo da cidade sem derrubar nada? Cada parte resolve um problema.",
+  "falas": [
+   "Se você coloca um trem andando embaixo da terra, já tem um metrô.",
+   "Mas a cidade em cima não pode parar, e cavar as ruas destrói tudo.",
+   "Então uma máquina gigante gira uma roda cheia de dentes e cava por baixo. Esse é o tatuzão.",
+   "Logo atrás, ela encaixa anéis de concreto que formam o tubo. Esse é o revestimento.",
+   "Mas a terra tem água, e o túnel inundaria.",
+   "Então entre os anéis vai uma borracha que veda a água.",
+   "Mas o trem precisa de energia, e embaixo da terra não dá pra ter fumaça.",
+   "Então você coloca um trilho com eletricidade ao lado dos outros, e o trem puxa a energia dele. Esse é o terceiro trilho.",
+   "Mas lá embaixo não tem janela, e o ar fica parado.",
+   "Então você abre poços com ventiladores enormes que trocam o ar. Esses são os poços de ventilação.",
+   "Mas as pessoas precisam chegar lá embaixo.",
+   "Então você cava um buraco grande com escadas rolantes até a plataforma. Essa é a estação.",
+   "E pronto! Você construiu um metrô.",
+   "Se você quer entender como tudo funciona, siga a nossa página. Todos os dias, vídeos como esse."
+  ]
+ },
+ {
+  "id": "eclusa",
+  "titulo": "Como construir uma eclusa",
+  "legenda": "Como um navio passa por uma barragem? Cada parte resolve um problema.",
+  "falas": [
+   "Se você quer levar um barco rio acima, é só navegar.",
+   "Mas no meio do rio tem uma barragem, e o barco teria que subir um degrau de vinte metros.",
+   "Então, ao lado da barragem, você faz um tanque de concreto com uma porta em cada ponta. Essa é a câmara.",
+   "As portas são gigantes de aço e fecham em ponta contra a água. Essas são as comportas.",
+   "O barco entra por baixo, e a porta de trás fecha.",
+   "Mas como levantar um barco de mil toneladas?",
+   "Então você abre túneis no fundo que deixam a água de cima entrar. Esses são os aquedutos.",
+   "A câmara enche, e o barco sobe junto com a água, sem motor nenhum.",
+   "Quando a água chega no nível de cima, a porta da frente abre, e o barco segue.",
+   "Mas o barco não pode ficar solto enquanto sobe.",
+   "Então você amarra o barco em argolas que flutuam e sobem junto com ele.",
+   "Pra descer é o contrário: a água sai por baixo, e o barco desce.",
+   "E pronto! Você construiu uma eclusa.",
+   "Se você quer entender como tudo funciona, siga a nossa página. Todos os dias, vídeos como esse."
+  ]
  }
 ]
