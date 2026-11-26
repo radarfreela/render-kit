@@ -1,0 +1,51 @@
+name: universo
+# Fábrica do Universo Detalhado: a API escreve a cena de um roteiro aprovado (universo/fabrica/pauta.json), grava e põe na fila de aprovação.
+on:
+  workflow_dispatch:
+    inputs:
+      id: { description: 'id da pauta', required: true }
+permissions:
+  contents: read
+  actions: write
+concurrency: { group: "universo-${{ inputs.id }}", cancel-in-progress: false }
+jobs:
+  video:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - name: Conferir entrada
+        env: { ID: "${{ inputs.id }}" }
+        run: printf '%s' "$ID" | grep -Eq '^[a-z0-9-]{2,30}$' || { echo "id inválido"; exit 1; }
+      - uses: actions/checkout@v4
+        with: { persist-credentials: false }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - name: Preparar
+        env:
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+        run: |
+          for t in 1 2 3; do timeout 300 pip install -q --timeout 60 anthropic playwright pillow && break; echo "pip travou, tentativa $t"; done
+          timeout 600 python -m playwright install --with-deps chromium > /dev/null
+          for t in 1 2 3; do timeout 300 sh -c 'sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg jq >/dev/null' && break; done
+          printf '%s\n%s\n%s\n' "$R2_ACCESS_KEY_ID" "$R2_SECRET_ACCESS_KEY" "$R2_ENDPOINT" > ~/.r2_lowticket && chmod 600 ~/.r2_lowticket
+          mkdir -p ~/Development && ln -s "$GITHUB_WORKSPACE" ~/Development/render-kit
+          mkdir -p universo/predio/audio
+          for s in baque encaixe martelo nome pingo pop range1 range3 telha telha2; do
+            R2_BUCKET=fabrica-lowticket R2_CRED_FILE=$HOME/.r2_lowticket sh r2.sh get universo/sfx/$s.mp3 universo/predio/audio/$s.mp3 > /dev/null; done
+          ls universo/predio/audio | wc -l
+      - name: Cena (API)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ID: ${{ inputs.id }}
+        run: python3 universo/fabrica/gerar_cena.py "$ID" "$RUNNER_TEMP/u/$ID"
+      - name: Voz, sons e gravação
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ID: ${{ inputs.id }}
+        run: python3 universo/fabrica/montar_video.py "$ID" "$RUNNER_TEMP/u/$ID"
+      - name: Guardar a folha de conferência
+        if: always()
+        uses: actions/upload-artifact@v4
+        with: { name: "conferencia-${{ inputs.id }}", path: "${{ runner.temp }}/u/${{ inputs.id }}/conferencia.jpg", if-no-files-found: ignore }

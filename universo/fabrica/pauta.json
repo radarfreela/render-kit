@@ -1,0 +1,118 @@
+[
+ {
+  "id": "piscina",
+  "titulo": "Como construir uma piscina",
+  "legenda": "Por que toda piscina tem filtro e bomba? Cada parte resolve um problema.",
+  "falas": [
+   "Se você cava um buraco no quintal e enche de água, já tem uma piscina.",
+   "Mas a terra chupa a água, e as paredes desmoronam.",
+   "Então você forra o buraco com uma bolsa de plástico grosso, sob medida. Esse é o vinil.",
+   "Mas em poucos dias a água fica verde, cheia de folha e sujeira.",
+   "Então você puxa a água por um ralo no fundo, passa por um tanque cheio de areia e devolve limpa. Esse é o filtro.",
+   "Mas a água não anda sozinha até o filtro.",
+   "Então você liga um motor que suga e empurra a água o tempo todo. Essa é a bomba.",
+   "Mas o filtro segura a sujeira, não os micróbios, e a água começa a cheirar mal.",
+   "Então você coloca cloro, que mata os micróbios. Esse é o cloro.",
+   "Mas quem pula de cabeça na parte rasa bate no fundo.",
+   "Então você faz o fundo inclinado: raso de um lado, fundo do outro.",
+   "E pronto! Você construiu uma piscina.",
+   "Se você quer entender como tudo funciona, siga a nossa página. Todos os dias, vídeos como esse."
+  ]
+ },
+ {
+  "id": "laje",
+  "titulo": "Como construir uma laje",
+  "legenda": "Por que a laje tem ferro dentro? Cada parte resolve um problema.",
+  "falas": [
+   "Se você coloca tábuas em cima das paredes, já tem um teto.",
+   "Mas a madeira apodrece com a chuva, e o cupim come.",
+   "Então você despeja concreto em cima de uma forma de madeira. Essa é a laje.",
+   "Mas o concreto racha no meio, porque não aguenta ser puxado.",
+   "Então você põe uma malha de ferro dentro: o concreto aguenta o aperto e o ferro aguenta o puxão. Essa é a armadura.",
+   "Mas uma laje toda de concreto pesa demais.",
+   "Então você usa vigotas e enche os vãos com blocos leves de isopor ou cerâmica. Essa é a laje pré-moldada.",
+   "Mas se você tira as escoras no dia seguinte, a laje cede, porque o concreto ainda está fraco.",
+   "Então você molha o concreto por vários dias, e só depois tira as escoras. Essa é a cura.",
+   "E pronto! Você construiu uma laje.",
+   "Se você quer entender como tudo funciona, siga a nossa página. Todos os dias, vídeos como esse."
+  ]
+ },
+ {
+  "id": "fossa",
+  "titulo": "Como construir uma fossa",
+  "legenda": "Para onde vai o esgoto da casa sem rede? Cada parte da fossa resolve um problema.",
+  "falas": [
+   "Se você cava um buraco e manda o esgoto do banheiro pra lá, já tem uma fossa.",
+   "Mas o buraco enche, transborda, e o cheiro toma conta do quintal.",
+   "Então você faz uma caixa fechada de concreto, onde o esgoto fica parado e a parte sólida afunda. Essa é a fossa séptica.",
+   "Mas lá dentro as bactérias comem a sujeira e soltam gás.",
+   "Então você coloca um cano que leva esse gás lá pro alto, acima do telhado. Esse é o respiro.",
+   "Mas a água que sai da fossa ainda está suja.",
+   "Então você passa essa água por uma caixa cheia de pedras, onde mais bactérias terminam o serviço. Esse é o filtro.",
+   "Mas ainda falta um lugar pra essa água ir.",
+   "Então você faz um poço de paredes furadas, e a terra filtra o resto. Esse é o sumidouro.",
+   "Mas um dia o fundo enche de lodo.",
+   "Então um caminhão vem e suga tudo pela tampa.",
+   "E pronto! Você construiu uma fossa.",
+   "Se você quer entender como tudo funciona, siga a nossa página. Todos os dias, vídeos como esse."
+  ]
+ },
+ {
+  "id": "asfalto",
+  "titulo": "Como construir uma rua",
+  "legenda": "Por que o meio da rua é mais alto que a beira? Cada parte resolve um problema.",
+  "falas": [
+   "Se você passa um trator em cima da terra, já tem uma rua.",
+   "Mas quando chove vira lama, e o carro atola.",
+   "Então você espalha pedras e aperta tudo com um rolo pesado. Essa é a base.",
+   "Mas as pedras se soltam com o peso dos caminhões.",
+   "Então você cobre com uma mistura quente de pedrinha e piche, que endurece quando esfria. Esse é o asfalto.",
+   "Mas a chuva empoça no meio da rua.",
+   "Então você deixa o meio mais alto que os lados. Esse é o abaulamento.",
+   "Mas a água da beira não tem pra onde ir, e inunda a calçada.",
+   "Então você põe grades no canto, que levam a água por canos embaixo da terra. Essa é a boca de lobo.",
+   "Mas à noite ninguém vê onde acaba a faixa.",
+   "Então você pinta as linhas com uma tinta que tem bolinhas de vidro e brilha no farol. Essa é a sinalização.",
+   "E pronto! Você construiu uma rua.",
+   "Se você quer entender como tudo funciona, siga a nossa página. Todos os dias, vídeos como esse."
+  ]
+ },
+ {
+  "id": "tunel",
+  "titulo": "Como construir um túnel",
+  "legenda": "Por que o túnel não desmorona? Cada parte resolve um problema.",
+  "falas": [
+   "Se você cava um buraco reto atravessando a montanha, já tem um túnel.",
+   "Mas a terra de cima cai e fecha o buraco.",
+   "Então, logo atrás de quem cava, você coloca arcos de aço. Essas são as cambotas.",
+   "Mas entre os arcos a terra continua caindo.",
+   "Então você joga concreto com uma mangueira de alta pressão, que gruda na parede. Esse é o concreto projetado.",
+   "Mas a água da montanha escorre e alaga o túnel.",
+   "Então você põe uma manta e canos nos lados, que levam a água pra fora. Essa é a drenagem.",
+   "Mas a fumaça dos carros se acumula lá dentro.",
+   "Então você pendura ventiladores gigantes no teto, que empurram o ar pra fora. Essa é a ventilação.",
+   "Mas quem entra no túnel vindo do sol fica cego por um instante.",
+   "Então você coloca luzes mais fortes na entrada e mais fracas no meio, pro olho se acostumar.",
+   "E pronto! Você construiu um túnel.",
+   "Se você quer entender como tudo funciona, siga a nossa página. Todos os dias, vídeos como esse."
+  ]
+ },
+ {
+  "id": "campo",
+  "titulo": "Como construir um campo de futebol",
+  "legenda": "Por que o campo não vira lago na chuva? Cada parte resolve um problema.",
+  "falas": [
+   "Se você pega um terreno de terra e coloca duas traves, já tem um campo.",
+   "Mas a terra levanta poeira, e machuca quem cai.",
+   "Então você planta uma grama baixinha e fechada. Esse é o gramado.",
+   "Mas quando chove forte, o campo vira lago e o jogo para.",
+   "Então você põe por baixo camadas de pedra, areia e canos furados, que puxam a água. Essa é a drenagem.",
+   "Mas à noite ninguém enxerga a bola.",
+   "Então você ergue torres nos cantos, com refletores apontados pro campo. Essa é a iluminação.",
+   "Mas a área do goleiro é tão pisada que a grama fica careca.",
+   "Então você mistura fios de grama sintética no meio da natural, que seguram as raízes. Essa é a grama híbrida.",
+   "E pronto! Você construiu um campo de futebol.",
+   "Se você quer entender como tudo funciona, siga a nossa página. Todos os dias, vídeos como esse."
+  ]
+ }
+]

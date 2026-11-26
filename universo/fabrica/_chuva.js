@@ -1,0 +1,6 @@
+const NCH = 700, chG = new THREE.BufferGeometry(), chP = new Float32Array(NCH * 6); chG.setAttribute('position', new THREE.BufferAttribute(chP, 3));
+const CHUVA = new THREE.LineSegments(chG, new THREE.LineBasicMaterial({ color: 0xcfe3f5, transparent: true, opacity: .55 })); S.add(CHUVA);
+function chuva(t, forca) { CHUVA.visible = forca > .01; CHUVA.material.opacity = .55 * forca; for (let k = 0; k < NCH; k++) { const x = (hs(k) - .5) * 16, z = (hs(k + 999) - .5) * 16, f = (t * 1.6 + hs(k + 77)) % 1, y = 12 - f * 13;
+  chP.set([x + .06, y, z, x, y - .45, z], k * 6); } chG.attributes.position.needsUpdate = true; }
+const seta = () => { const g = new THREE.Group(); const m = new THREE.MeshStandardMaterial({ color: 0xff7a1a, emissive: 0xff5a00, emissiveIntensity: .35, flatShading: true });
+  const c = new THREE.Mesh(new THREE.CylinderGeometry(.07, .07, .7, 8), m); c.position.y = .55; g.add(c); const p = new THREE.Mesh(new THREE.ConeGeometry(.2, .4, 8), m); p.rotation.x = Math.PI; p.position.y = .1; g.add(p); S.add(g); g.visible = false; return g; };
