@@ -68,6 +68,11 @@ for s in json.load(open(P / 'plano-sons.json')):
 ev += [{'som': 'nome.mp3', 't': round(t, 2), 'vol': .6} for t in rev]
 json.dump({'duracao': round(T['DUR'], 2), 'trilha': None, 'narracao': [{'arquivo': 'voz.wav', 't': 0, 'vol': 1}], 'fundo': [], 'eventos': sorted(ev, key=lambda e: e['t'])}, open(P / 'molde/sons.json', 'w'), indent=1)
 for s in SONS_OK | {'nome.mp3'}: (P / 'audio' / s).write_bytes((NAT / 'predio/audio' / s).read_bytes())
+if os.environ.get('SEM_R2'):   # gravação feita pelos próximos passos do próprio workflow (sem R2)
+    custo = json.load(open(P / 'custo.json')).get('custo_usd') if (P / 'custo.json').exists() else None
+    (P / 'saida').mkdir(exist_ok=True)
+    json.dump({'pauta': ID, 'titulo': PAUTA['titulo'], 'legenda': PAUTA['legenda'], 'custo_api_usd': custo, 'duracao': round(T['DUR'], 1)}, open(P / 'saida/ficha.json', 'w'), ensure_ascii=False)
+    print('pronto para gravar', flush=True); sys.exit(0)
 # 4) gravar na nuvem
 for f in ['video.html', 'falas.js', 'palavras-tempo.js', 'sons.json', 'fontes/Inter.ttf']: r2('put', P / 'molde' / f, f'{J}/molde/{f}')
 for f in (P / 'audio').iterdir(): r2('put', f, f'{J}/audio/{f.name}')
