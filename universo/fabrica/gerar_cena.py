@@ -67,10 +67,10 @@ def exemplo_txt():
                    f'\n```js meio\n{e["meio"]}\n```\n```js logica\n{e["logica"]}\n```')
     return '\n\n'.join(out)
 
-def chamar(conteudo, max_tokens=64000):
+def chamar(conteudo, max_tokens=64000, esforco='medium'):
     for tent in range(3):
         try:
-            with CLI.beta.messages.stream(model=MODELO, max_tokens=max_tokens, thinking={'type': 'adaptive'}, output_config={'effort': 'high'},
+            with CLI.beta.messages.stream(model=MODELO, max_tokens=max_tokens, thinking={'type': 'adaptive'}, output_config={'effort': esforco},
                                      system=[{'type': 'text', 'text': SISTEMA}, {'type': 'text', 'text': '\n\n'.join(f'### {k}\n```js\n{v}\n```' for k, v in CONTRATO.items()) + '\n\n' + exemplo_txt(), 'cache_control': {'type': 'ephemeral'}}],
                                      messages=[{'role': 'user', 'content': conteudo}]) as st:
                 r = st.get_final_message()
@@ -143,8 +143,8 @@ def conferir():   # grava 1 quadro no meio de cada fala + erros do console; devo
 def roteiro_txt(): return '\n'.join(f'{i}: {f}' for i, f in enumerate(PAUTA['falas']))
 
 # 1) primeira versão
-for tent in range(3):
-    txt, stop = chamar(f'ROTEIRO APROVADO ("{PAUTA["titulo"]}"):\n{roteiro_txt()}\n\nEscreva a cena completa seguindo as regras e o padrão dos exemplos. '
+for tent in range(2):
+    txt, stop = chamar(esforco=('medium', 'low')[tent], conteudo=f'ROTEIRO APROVADO ("{PAUTA["titulo"]}"):\n{roteiro_txt()}\n\nEscreva a cena completa seguindo as regras e o padrão dos exemplos. '
                        'Responda SÓ com os três blocos (```js meio, ```js logica, ```json extra), sem explicação, e seja econômico no texto para caber.')
     try: meio, logica, extra = separar(txt); break
     except ValueError as e: print(f'tentativa {tent}: {e} (fim: {stop}, {len(txt)} letras) início:', txt[:200].replace(chr(10), ' '), flush=True)
